@@ -218,8 +218,13 @@ export default function DatasetsPage() {
                                 Signals:
                               </div>
                               <div className="mt-1 space-y-1 text-gray-300">
-                                {device.measuredSignals &&
-                                device.measuredSignals.length > 0 ? (
+                                {device.signalsEmitted &&
+                                device.signalsEmitted.length > 0 ? (
+                                  device.signalsEmitted.slice(0, 3).map((signal) => (
+                                    <div key={signal}>• {signal}</div>
+                                  ))
+                                ) : device.measuredSignals &&
+                                  device.measuredSignals.length > 0 ? (
                                   device.measuredSignals
                                     .slice(0, 3)
                                     .map((signal) => (
@@ -232,6 +237,16 @@ export default function DatasetsPage() {
                                 )}
                               </div>
                             </div>
+                            {device.primaryTimeAxis && (
+                              <div>
+                                <div className="font-medium text-gray-400">
+                                  Time Axis:
+                                </div>
+                                <div className="mt-1 text-gray-300">
+                                  {device.primaryTimeAxis}
+                                </div>
+                              </div>
+                            )}
                             <div>
                               <div className="font-medium text-gray-400">
                                 Frequency:

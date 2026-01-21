@@ -96,48 +96,130 @@ export function DeviceDetailsDrawer({
               </div>
             </div>
 
-            {/* Sensor Signals */}
+            {/* Sensor Outputs */}
             <div>
               <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-400">
-                Sensor Signals
+                Sensor Outputs
               </h3>
               <div className="space-y-3 rounded-lg border border-gray-800 bg-gray-950/50 p-4">
-                <div className="flex flex-col">
-                  <span className="text-xs font-medium text-gray-400">
-                    Category
-                  </span>
-                  <span className="mt-1 text-sm text-gray-300">
-                    {device.sensorCategory}
-                  </span>
-                </div>
-                <div className="flex flex-col">
-                  <span className="text-xs font-medium text-gray-400">
-                    Measured Signals
-                  </span>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {device.measuredSignals &&
-                    device.measuredSignals.length > 0 ? (
-                      device.measuredSignals.map((signal) => (
+                {device.signalCategory && device.signalCategory.length > 0 ? (
+                  <div className="flex flex-col">
+                    <span className="text-xs font-medium text-gray-400">
+                      Signal Category
+                    </span>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {device.signalCategory.map((category) => (
+                        <span
+                          key={category}
+                          className="rounded-md bg-blue-900/30 px-2 py-1 text-xs text-blue-300"
+                        >
+                          {category}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ) : device.sensorCategory ? (
+                  <div className="flex flex-col">
+                    <span className="text-xs font-medium text-gray-400">
+                      Category
+                    </span>
+                    <span className="mt-1 text-sm text-gray-300">
+                      {device.sensorCategory}
+                    </span>
+                  </div>
+                ) : null}
+
+                {device.signalsEmitted && device.signalsEmitted.length > 0 ? (
+                  <div className="flex flex-col">
+                    <span className="text-xs font-medium text-gray-400">
+                      Signals Emitted
+                    </span>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {device.signalsEmitted.map((signal) => (
+                        <span
+                          key={signal}
+                          className="rounded-md bg-green-900/30 px-2 py-1 text-xs text-green-300"
+                        >
+                          {signal}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ) : device.measuredSignals &&
+                  device.measuredSignals.length > 0 ? (
+                  <div className="flex flex-col">
+                    <span className="text-xs font-medium text-gray-400">
+                      Measured Signals
+                    </span>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {device.measuredSignals.map((signal) => (
                         <span
                           key={signal}
                           className="rounded-md bg-blue-900/30 px-2 py-1 text-xs text-blue-300"
                         >
                           {signal} {getSignalUnit(signal)}
                         </span>
-                      ))
-                    ) : (
-                      <span className="text-sm text-gray-500">None selected</span>
-                    )}
+                      ))}
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  <div className="flex flex-col">
+                    <span className="text-xs font-medium text-gray-400">
+                      Signals Emitted
+                    </span>
+                    <span className="mt-1 text-sm text-gray-500">
+                      None selected
+                    </span>
+                  </div>
+                )}
+
                 <div className="flex flex-col">
                   <span className="text-xs font-medium text-gray-400">
-                    Unit System
+                    Signal Dimensionality
                   </span>
                   <span className="mt-1 text-sm text-gray-300">
-                    {device.unitSystem}
+                    {device.signalDimensionality || 'Single-channel'}
                   </span>
                 </div>
+
+                <div className="flex flex-col">
+                  <span className="text-xs font-medium text-gray-400">
+                    Primary Time Axis
+                  </span>
+                  <span className="mt-1 text-sm text-gray-300">
+                    {device.primaryTimeAxis || 'Event time'}
+                  </span>
+                </div>
+
+                {device.valueCharacteristics &&
+                  device.valueCharacteristics.length > 0 && (
+                    <div className="flex flex-col">
+                      <span className="text-xs font-medium text-gray-400">
+                        Value Characteristics
+                      </span>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {device.valueCharacteristics.map((char) => (
+                          <span
+                            key={char}
+                            className="rounded-md bg-purple-900/30 px-2 py-1 text-xs text-purple-300"
+                          >
+                            {char}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                {device.unitSystem && (
+                  <div className="flex flex-col">
+                    <span className="text-xs font-medium text-gray-400">
+                      Unit System
+                    </span>
+                    <span className="mt-1 text-sm text-gray-300">
+                      {device.unitSystem}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
 

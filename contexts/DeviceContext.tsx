@@ -9,10 +9,16 @@ export interface Device {
   deviceId: string;
   type: 'Satellite-derived' | 'Ground Sensor' | 'Weather Station' | 'Air Quality Monitor' | 'Custom';
   status: 'Provisioned' | 'Active' | 'Inactive';
-  // Sensor Definition
-  sensorCategory: 'Environmental' | 'Atmospheric' | 'Industrial' | 'Energy';
-  measuredSignals: string[];
-  unitSystem: 'SI' | 'Metric (custom)';
+  // Sensor Outputs
+  signalCategory: string[]; // Multi-select: Scalar, Vector, Event, State, Media, Custom
+  signalsEmitted: string[]; // Multi-select: Numeric value, Categorical value, Boolean flag, etc.
+  signalDimensionality: 'Single-channel' | 'Multi-channel' | 'Multi-modal';
+  primaryTimeAxis: 'Event time' | 'Ingest time' | 'Processing time';
+  valueCharacteristics?: string[]; // Optional: Continuous, Discrete, Bursty, Periodic
+  // Legacy fields for backward compatibility
+  sensorCategory?: 'Environmental' | 'Atmospheric' | 'Industrial' | 'Energy';
+  measuredSignals?: string[];
+  unitSystem?: 'SI' | 'Metric (custom)';
   // Location & Coverage
   locationType: 'Fixed' | 'Mobile' | 'Region-based';
   latitude?: number;
@@ -52,6 +58,14 @@ export function DeviceProvider({ children }: { children: ReactNode }) {
           ...device,
           status: device.status || 'Provisioned',
           source: device.source || 'Internal',
+          // New signal model fields (default if not present)
+          signalCategory: device.signalCategory || [],
+          signalsEmitted: device.signalsEmitted || [],
+          signalDimensionality:
+            device.signalDimensionality || 'Single-channel',
+          primaryTimeAxis: device.primaryTimeAxis || 'Event time',
+          valueCharacteristics: device.valueCharacteristics || [],
+          // Legacy fields for backward compatibility
           measuredSignals: device.measuredSignals || [],
           sensorCategory: device.sensorCategory || 'Environmental',
           unitSystem: device.unitSystem || 'SI',

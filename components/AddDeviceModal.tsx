@@ -9,16 +9,33 @@ interface AddDeviceModalProps {
   onClose: () => void;
 }
 
-const SIGNAL_OPTIONS = [
-  'Temperature',
-  'Humidity',
-  'Pressure',
-  'Wind Speed',
-  'Wind Direction',
-  'PM2.5',
-  'PM10',
-  'CO₂',
-  'Rainfall',
+const SIGNAL_CATEGORIES = [
+  'Scalar',
+  'Vector',
+  'Event',
+  'State',
+  'Media',
+  'Custom',
+];
+
+const SIGNALS_EMITTED = [
+  'Numeric value',
+  'Categorical value',
+  'Boolean flag',
+  'Time series',
+  'Geospatial coordinate',
+  'Vector / multi-axis data',
+  'Event log',
+  'Binary payload',
+  'Image / raster',
+  'Custom signal',
+];
+
+const VALUE_CHARACTERISTICS = [
+  'Continuous',
+  'Discrete',
+  'Bursty',
+  'Periodic',
 ];
 
 export function AddDeviceModal({ isOpen, onClose }: AddDeviceModalProps) {
@@ -28,10 +45,13 @@ export function AddDeviceModal({ isOpen, onClose }: AddDeviceModalProps) {
     name: '',
     deviceId: '',
     type: 'Ground Sensor' as Device['type'],
-    // Sensor Definition
-    sensorCategory: 'Environmental' as Device['sensorCategory'],
-    measuredSignals: [] as string[],
-    unitSystem: 'SI' as Device['unitSystem'],
+    // Sensor Outputs
+    signalCategory: [] as string[],
+    signalsEmitted: [] as string[],
+    signalDimensionality: 'Single-channel' as Device['signalDimensionality'],
+    primaryTimeAxis: 'Event time' as Device['primaryTimeAxis'],
+    valueCharacteristics: [] as string[],
+    showValueCharacteristics: false,
     // Location & Coverage
     locationType: 'Fixed' as Device['locationType'],
     latitude: '',
@@ -60,12 +80,15 @@ export function AddDeviceModal({ isOpen, onClose }: AddDeviceModalProps) {
 
   if (!isOpen) return null;
 
-  const handleSignalToggle = (signal: string) => {
+  const handleMultiSelectToggle = (
+    field: 'signalCategory' | 'signalsEmitted' | 'valueCharacteristics',
+    value: string
+  ) => {
     setFormData((prev) => ({
       ...prev,
-      measuredSignals: prev.measuredSignals.includes(signal)
-        ? prev.measuredSignals.filter((s) => s !== signal)
-        : [...prev.measuredSignals, signal],
+      [field]: prev[field].includes(value)
+        ? prev[field].filter((v) => v !== value)
+        : [...prev[field], value],
     }));
   };
 
@@ -81,9 +104,14 @@ export function AddDeviceModal({ isOpen, onClose }: AddDeviceModalProps) {
       deviceId: formData.deviceId.trim(),
       type: formData.type,
       status: 'Provisioned',
-      sensorCategory: formData.sensorCategory,
-      measuredSignals: formData.measuredSignals,
-      unitSystem: formData.unitSystem,
+      signalCategory: formData.signalCategory,
+      signalsEmitted: formData.signalsEmitted,
+      signalDimensionality: formData.signalDimensionality,
+      primaryTimeAxis: formData.primaryTimeAxis,
+      valueCharacteristics:
+        formData.valueCharacteristics.length > 0
+          ? formData.valueCharacteristics
+          : undefined,
       locationType: formData.locationType,
       latitude: formData.latitude ? parseFloat(formData.latitude) : undefined,
       longitude: formData.longitude ? parseFloat(formData.longitude) : undefined,
@@ -101,9 +129,12 @@ export function AddDeviceModal({ isOpen, onClose }: AddDeviceModalProps) {
       name: '',
       deviceId: '',
       type: 'Ground Sensor',
-      sensorCategory: 'Environmental',
-      measuredSignals: [],
-      unitSystem: 'SI',
+      signalCategory: [],
+      signalsEmitted: [],
+      signalDimensionality: 'Single-channel',
+      primaryTimeAxis: 'Event time',
+      valueCharacteristics: [],
+      showValueCharacteristics: false,
       locationType: 'Fixed',
       latitude: '',
       longitude: '',
@@ -215,53 +246,59 @@ export function AddDeviceModal({ isOpen, onClose }: AddDeviceModalProps) {
               </div>
             </div>
 
-            {/* 2. Sensor Definition */}
+            {/* 2. Sensor Outputs */}
             <div className="space-y-4">
               <div>
                 <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-400">
-                  2. Sensor Definition
+                  2. Sensor Outputs
                 </h3>
                 <div className="space-y-4 rounded-lg border border-gray-800 bg-gray-950/50 p-4">
                   <div>
-                    <label
-                      htmlFor="sensorCategory"
-                      className="mb-1 block text-sm font-medium text-gray-300"
-                    >
-                      Sensor Category <span className="text-red-400">*</span>
+                    <label className="mb-2 block text-sm font-medium text-gray-300">
+                      Signal Category
                     </label>
-                    <select
-                      id="sensorCategory"
-                      required
-                      value={formData.sensorCategory}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          sensorCategory: e.target.value as Device['sensorCategory'],
-                        })
-                      }
-                      className="w-full rounded-lg border border-gray-800 bg-gray-950 px-3 py-2 text-sm text-white focus:border-gray-700 focus:outline-none"
-                    >
-                      <option value="Environmental">Environmental</option>
-                      <option value="Atmospheric">Atmospheric</option>
-                      <option value="Industrial">Industrial</option>
-                      <option value="Energy">Energy</option>
-                    </select>
+                    <p className="mb-2 text-xs text-gray-500">
+                      Describes the type of data emitted by the device.
+                    </p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {SIGNAL_CATEGORIES.map((category) => (
+                        <label
+                          key={category}
+                          className="flex cursor-pointer items-center gap-2 rounded-lg border border-gray-800 bg-gray-950 px-3 py-2 text-sm text-gray-300 transition-colors hover:bg-gray-900 hover:border-gray-700"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={formData.signalCategory.includes(category)}
+                            onChange={() =>
+                              handleMultiSelectToggle('signalCategory', category)
+                            }
+                            className="h-4 w-4 rounded border-gray-700 bg-gray-900 text-blue-600 focus:ring-blue-500"
+                          />
+                          <span>{category}</span>
+                        </label>
+                      ))}
+                    </div>
                   </div>
 
                   <div>
                     <label className="mb-2 block text-sm font-medium text-gray-300">
-                      Measured Signals
+                      Signals Emitted
                     </label>
+                    <p className="mb-2 text-xs text-gray-500">
+                      Select the data primitives produced by this device.
+                    </p>
                     <div className="grid grid-cols-2 gap-2">
-                      {SIGNAL_OPTIONS.map((signal) => (
+                      {SIGNALS_EMITTED.map((signal) => (
                         <label
                           key={signal}
                           className="flex cursor-pointer items-center gap-2 rounded-lg border border-gray-800 bg-gray-950 px-3 py-2 text-sm text-gray-300 transition-colors hover:bg-gray-900 hover:border-gray-700"
                         >
                           <input
                             type="checkbox"
-                            checked={formData.measuredSignals.includes(signal)}
-                            onChange={() => handleSignalToggle(signal)}
+                            checked={formData.signalsEmitted.includes(signal)}
+                            onChange={() =>
+                              handleMultiSelectToggle('signalsEmitted', signal)
+                            }
                             className="h-4 w-4 rounded border-gray-700 bg-gray-900 text-blue-600 focus:ring-blue-500"
                           />
                           <span>{signal}</span>
@@ -272,26 +309,97 @@ export function AddDeviceModal({ isOpen, onClose }: AddDeviceModalProps) {
 
                   <div>
                     <label
-                      htmlFor="unitSystem"
+                      htmlFor="signalDimensionality"
                       className="mb-1 block text-sm font-medium text-gray-300"
                     >
-                      Unit System <span className="text-red-400">*</span>
+                      Signal Dimensionality
                     </label>
                     <select
-                      id="unitSystem"
-                      required
-                      value={formData.unitSystem}
+                      id="signalDimensionality"
+                      value={formData.signalDimensionality}
                       onChange={(e) =>
                         setFormData({
                           ...formData,
-                          unitSystem: e.target.value as Device['unitSystem'],
+                          signalDimensionality: e.target.value as Device['signalDimensionality'],
                         })
                       }
                       className="w-full rounded-lg border border-gray-800 bg-gray-950 px-3 py-2 text-sm text-white focus:border-gray-700 focus:outline-none"
                     >
-                      <option value="SI">SI</option>
-                      <option value="Metric (custom)">Metric (custom)</option>
+                      <option value="Single-channel">Single-channel</option>
+                      <option value="Multi-channel">Multi-channel</option>
+                      <option value="Multi-modal">Multi-modal</option>
                     </select>
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="primaryTimeAxis"
+                      className="mb-1 block text-sm font-medium text-gray-300"
+                    >
+                      Primary Time Axis
+                    </label>
+                    <select
+                      id="primaryTimeAxis"
+                      value={formData.primaryTimeAxis}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          primaryTimeAxis: e.target.value as Device['primaryTimeAxis'],
+                        })
+                      }
+                      className="w-full rounded-lg border border-gray-800 bg-gray-950 px-3 py-2 text-sm text-white focus:border-gray-700 focus:outline-none"
+                    >
+                      <option value="Event time">Event time</option>
+                      <option value="Ingest time">Ingest time</option>
+                      <option value="Processing time">Processing time</option>
+                    </select>
+                  </div>
+
+                  {/* Optional: Value Characteristics (Collapsed by Default) */}
+                  <div>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setFormData({
+                          ...formData,
+                          showValueCharacteristics:
+                            !formData.showValueCharacteristics,
+                        })
+                      }
+                      className="flex w-full items-center justify-between text-sm font-medium text-gray-300 hover:text-white"
+                    >
+                      <span>Value Characteristics (Optional)</span>
+                      <span className="text-gray-500">
+                        {formData.showValueCharacteristics ? '−' : '+'}
+                      </span>
+                    </button>
+                    {formData.showValueCharacteristics && (
+                      <div className="mt-3">
+                        <div className="grid grid-cols-2 gap-2">
+                          {VALUE_CHARACTERISTICS.map((characteristic) => (
+                            <label
+                              key={characteristic}
+                              className="flex cursor-pointer items-center gap-2 rounded-lg border border-gray-800 bg-gray-950 px-3 py-2 text-sm text-gray-300 transition-colors hover:bg-gray-900 hover:border-gray-700"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={formData.valueCharacteristics.includes(
+                                  characteristic
+                                )}
+                                onChange={() =>
+                                  handleMultiSelectToggle(
+                                    'valueCharacteristics',
+                                    characteristic
+                                  )
+                                }
+                                className="h-4 w-4 rounded border-gray-700 bg-gray-900 text-blue-600 focus:ring-blue-500"
+                              />
+                              <span>{characteristic}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
