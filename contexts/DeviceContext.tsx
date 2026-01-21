@@ -8,6 +8,7 @@ export interface Device {
   name: string;
   deviceId: string;
   type: 'Satellite-derived' | 'Ground Sensor' | 'Weather Station' | 'Air Quality Monitor' | 'Custom';
+  status: 'Provisioned' | 'Active' | 'Inactive';
   // Sensor Definition
   sensorCategory: 'Environmental' | 'Atmospheric' | 'Industrial' | 'Energy';
   measuredSignals: string[];
@@ -45,7 +46,21 @@ export function DeviceProvider({ children }: { children: ReactNode }) {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
       try {
-        setDevices(JSON.parse(stored));
+        const parsed = JSON.parse(stored);
+        // Migrate old devices to include all required fields
+        const migrated = parsed.map((device: any) => ({
+          ...device,
+          status: device.status || 'Provisioned',
+          source: device.source || 'Internal',
+          measuredSignals: device.measuredSignals || [],
+          sensorCategory: device.sensorCategory || 'Environmental',
+          unitSystem: device.unitSystem || 'SI',
+          locationType: device.locationType || 'Fixed',
+          dataFrequency: device.dataFrequency || 'Every 5 min',
+          dataFormat: device.dataFormat || 'JSON',
+          expectedLatency: device.expectedLatency || 'Near real-time',
+        }));
+        setDevices(migrated);
       } catch (error) {
         console.error('Failed to parse stored devices:', error);
       }

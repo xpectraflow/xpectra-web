@@ -15,8 +15,11 @@ import {
   Search,
 } from 'lucide-react';
 import { SidebarItem } from './SidebarItem';
+import { useDevices } from '@/contexts/DeviceContext';
 
 export function Sidebar() {
+  const { devices } = useDevices();
+
   return (
     <div className="flex h-screen w-64 flex-col border-r border-gray-800 bg-gray-950">
       {/* Top Section */}
@@ -54,7 +57,12 @@ export function Sidebar() {
             <div className="mb-2 px-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
               Datasets
             </div>
-            <SidebarItem href="/datasets" icon={Database} label="My datasets" />
+            <SidebarItem
+              href="/datasets"
+              icon={Database}
+              label="My datasets"
+              count={devices.length}
+            />
             <SidebarItem
               href="/datasets/shared"
               icon={Users}
@@ -64,6 +72,7 @@ export function Sidebar() {
               href="/datasets/open"
               icon={Globe}
               label="Open data"
+              count={2}
             />
           </div>
 

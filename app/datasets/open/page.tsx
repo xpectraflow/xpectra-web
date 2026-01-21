@@ -23,6 +23,9 @@ export default function OpenDataPage() {
               <span className="rounded-md bg-green-900/30 px-2 py-1 text-xs font-medium text-green-300">
                 Environmental
               </span>
+              <span className="rounded-md bg-blue-900/30 px-2 py-1 text-xs font-medium text-blue-300">
+                ISRO
+              </span>
             </div>
             <p className="text-sm text-gray-400">
               Earth observation datasets from Indian meteorological satellites.
@@ -89,6 +92,9 @@ export default function OpenDataPage() {
               </span>
               <span className="rounded-md bg-orange-900/30 px-2 py-1 text-xs font-medium text-orange-300">
                 Urban
+              </span>
+              <span className="rounded-md bg-purple-900/30 px-2 py-1 text-xs font-medium text-purple-300">
+                CPCB
               </span>
             </div>
             <p className="text-sm text-gray-400">

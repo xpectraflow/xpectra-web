@@ -80,6 +80,7 @@ export function AddDeviceModal({ isOpen, onClose }: AddDeviceModalProps) {
       name: formData.name.trim(),
       deviceId: formData.deviceId.trim(),
       type: formData.type,
+      status: 'Provisioned',
       sensorCategory: formData.sensorCategory,
       measuredSignals: formData.measuredSignals,
       unitSystem: formData.unitSystem,
@@ -91,7 +92,7 @@ export function AddDeviceModal({ isOpen, onClose }: AddDeviceModalProps) {
       dataFormat: formData.dataFormat,
       expectedLatency: formData.expectedLatency,
       owner: formData.owner.trim() || undefined,
-      source: formData.source.trim() || undefined,
+      source: formData.source.trim() || 'Internal',
       notes: formData.notes.trim() || undefined,
     });
 
