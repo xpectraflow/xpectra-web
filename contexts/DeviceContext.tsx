@@ -4,10 +4,27 @@ import { createContext, useContext, useState, useEffect, ReactNode } from 'react
 
 export interface Device {
   id: string;
+  // Device Identity
   name: string;
-  type: 'Inverter' | 'WMS';
-  topic?: string;
-  interval: number;
+  deviceId: string;
+  type: 'Satellite-derived' | 'Ground Sensor' | 'Weather Station' | 'Air Quality Monitor' | 'Custom';
+  // Sensor Definition
+  sensorCategory: 'Environmental' | 'Atmospheric' | 'Industrial' | 'Energy';
+  measuredSignals: string[];
+  unitSystem: 'SI' | 'Metric (custom)';
+  // Location & Coverage
+  locationType: 'Fixed' | 'Mobile' | 'Region-based';
+  latitude?: number;
+  longitude?: number;
+  region?: string;
+  // Data Emission Profile
+  dataFrequency: 'Real-time' | 'Every 1 min' | 'Every 5 min' | 'Hourly';
+  dataFormat: 'JSON' | 'CSV' | 'Binary (simulated)';
+  expectedLatency: 'Near real-time' | '5–15 min' | 'Batch';
+  // Metadata
+  owner?: string;
+  source?: string;
+  notes?: string;
   createdAt: string;
 }
 
