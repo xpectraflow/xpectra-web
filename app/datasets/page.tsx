@@ -51,10 +51,19 @@ export default function DatasetsPage() {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [hoveredRow, setHoveredRow] = useState<number | null>(null);
 
+  // Static mapping of dataset names to active job counts
+  const getActiveJobsCount = (datasetName: string): number => {
+    const nameLower = datasetName.toLowerCase();
+    if (nameLower.includes('mosdac')) return 2;
+    if (nameLower.includes('aqi')) return 1;
+    // User-created datasets default to 0 or 1 (randomly 0 for demo)
+    return 0;
+  };
+
   // Build table rows: show static row if no devices, otherwise show devices
   const tableRows =
     devices.length === 0
-      ? [{ ...staticDataset, id: 'static', isStatic: true }]
+      ? [{ ...staticDataset, id: 'static', isStatic: true, activeJobs: getActiveJobsCount(staticDataset.name) }]
       : devices.map((device) => ({
           id: device.id,
           group: 'Personal Datasets',
@@ -64,6 +73,7 @@ export default function DatasetsPage() {
           source: device.source || 'Internal',
           device: device,
           isStatic: false,
+          activeJobs: getActiveJobsCount(device.name),
         }));
 
   const handleRowClick = (row: any) => {
@@ -112,6 +122,9 @@ export default function DatasetsPage() {
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-400">
                     Datapoints
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-400">
+                    Active Jobs
                   </th>
                 </tr>
               </thead>
@@ -176,6 +189,9 @@ export default function DatasetsPage() {
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-400">
                         {row.datapoints}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-300">
+                        {row.activeJobs}
                       </td>
 
                       {/* Hover Schema Preview Tooltip */}
