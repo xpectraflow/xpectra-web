@@ -2,17 +2,29 @@
 
 import { PageLayout } from '@/components/PageLayout';
 import { Plus, Search } from 'lucide-react';
+import { useDevices } from '@/contexts/DeviceContext';
 
-const datasets = [
-  {
-    group: 'Personal Datasets',
-    name: 'arush kumar singh',
-    temporalCoverage: '—',
-    datapoints: 0,
-  },
-];
+const staticDataset = {
+  group: 'Personal Datasets',
+  name: 'arush kumar singh',
+  temporalCoverage: '—',
+  datapoints: 0,
+};
 
 export default function DatasetsPage() {
+  const { devices } = useDevices();
+
+  // Build table rows: show static row if no devices, otherwise show devices
+  const tableRows =
+    devices.length === 0
+      ? [staticDataset]
+      : devices.map((device) => ({
+          group: 'Personal Datasets',
+          name: device.name,
+          temporalCoverage: '—',
+          datapoints: 0,
+        }));
+
   return (
     <PageLayout
       title="My datasets"
@@ -55,7 +67,7 @@ export default function DatasetsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-800">
-              {datasets.map((dataset, index) => (
+              {tableRows.map((dataset, index) => (
                 <tr
                   key={index}
                   className="transition-colors hover:bg-gray-900/50"
