@@ -61,7 +61,19 @@ export default function DatasetsPage() {
   };
 
   // Build table rows: show static row if no devices, otherwise show devices
-  const tableRows =
+  type TableRow = {
+    id: string;
+    group: string;
+    name: string;
+    temporalCoverage: string;
+    datapoints: number;
+    source: string;
+    isStatic: boolean;
+    activeJobs: number;
+    device?: Device;
+  };
+
+  const tableRows: TableRow[] =
     devices.length === 0
       ? [{ ...staticDataset, id: 'static', isStatic: true, activeJobs: getActiveJobsCount(staticDataset.name) }]
       : devices.map((device) => ({
