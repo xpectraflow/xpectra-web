@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import {
   Rocket,
@@ -13,12 +13,15 @@ import {
   BookOpen,
   MessageCircle,
   Search,
+  LogOut,
 } from 'lucide-react';
 import { SidebarItem } from './SidebarItem';
 import { useDevices } from '@/contexts/DeviceContext';
+import { signOut, useSession } from "next-auth/react";
 
 export function Sidebar() {
   const { devices } = useDevices();
+  const { data: session } = useSession();
 
   return (
     <div className="flex h-screen w-64 flex-col border-r border-gray-800 bg-gray-950">
@@ -89,6 +92,23 @@ export function Sidebar() {
 
       {/* Bottom Section */}
       <div className="border-t border-gray-800 p-4">
+        <div className="mb-4 rounded-lg border border-gray-800 bg-gray-900/70 p-3">
+          <p className="truncate text-sm font-medium text-white">
+            {session?.user?.name ?? "Signed in user"}
+          </p>
+          <p className="truncate text-xs text-gray-400">
+            {session?.user?.email ?? "Local account"}
+          </p>
+          <button
+            type="button"
+            onClick={() => signOut({ callbackUrl: "/login" })}
+            className="mt-3 inline-flex items-center gap-2 rounded-md border border-gray-700 px-2.5 py-1.5 text-xs font-medium text-gray-300 transition hover:bg-gray-800 hover:text-white"
+          >
+            <LogOut className="h-3.5 w-3.5" />
+            Sign out
+          </button>
+        </div>
+
         <div className="space-y-1">
           <SidebarItem href="/support" icon={HelpCircle} label="Support" />
           <SidebarItem href="/docs" icon={BookOpen} label="Docs" />
