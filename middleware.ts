@@ -2,8 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getToken } from "next-auth/jwt";
 
 const PUBLIC_ROUTES = new Set(["/login", "/register"]);
-const AUTH_SECRET =
-  process.env.AUTH_SECRET ??
+const NEXTAUTH_SECRET =
   process.env.NEXTAUTH_SECRET ??
   "xpectra-dev-secret-change-me";
 
@@ -13,7 +12,7 @@ export async function middleware(request: NextRequest) {
 
   const token = await getToken({
     req: request,
-    secret: AUTH_SECRET,
+    secret: NEXTAUTH_SECRET,
   });
 
   if (!token && !isPublicRoute) {

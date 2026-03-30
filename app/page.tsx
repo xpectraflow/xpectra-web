@@ -1,4 +1,5 @@
 import { PageLayout } from '@/components/PageLayout';
+import { SessionStatusCard } from "@/components/auth/SessionStatusCard";
 
 export default function Home() {
   return (
@@ -14,6 +15,12 @@ export default function Home() {
           </a>{' '}
           guide.
         </p>
+        <div className="mt-6 rounded-lg border border-gray-800 bg-gray-950/50 p-4">
+          <h2 className="mb-2 text-sm font-medium text-white">
+            tRPC auth bootstrap
+          </h2>
+          <SessionStatusCard />
+        </div>
       </div>
     </PageLayout>
   );

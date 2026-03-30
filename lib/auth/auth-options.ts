@@ -7,7 +7,6 @@ import { findUserByEmail } from "@/lib/auth/user-store";
 export const authOptions: NextAuthOptions = {
   secret:
     process.env.NEXTAUTH_SECRET ??
-    process.env.AUTH_SECRET ??
     "xpectra-dev-secret-change-me",
   session: {
     strategy: "jwt",
