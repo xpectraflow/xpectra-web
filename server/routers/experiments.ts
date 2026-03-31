@@ -2,7 +2,8 @@ import { randomUUID } from "crypto";
 import { TRPCError } from "@trpc/server";
 import { and, desc, eq } from "drizzle-orm";
 import { z } from "zod";
-import { experiments, users } from "@/server/db/schema";
+import { experiments } from "@/server/db/schema";
+import { getOrCreateDbUser, userInfoFromSession } from "@/server/routers/ownership";
 import { createTRPCRouter, protectedProcedure } from "@/server/trpc";
 
 const createExperimentInput = z.object({
@@ -19,45 +20,13 @@ const updateExperimentInput = createExperimentInput.extend({
   id: z.uuid(),
 });
 
-async function getOrCreateDbUser(input: {
-  db: (typeof import("@/server/db"))["db"];
-  sessionUserId: string;
-  email: string;
-  name: string;
-}): Promise<string> {
-  const existingById = await input.db.query.users.findFirst({
-    where: (user, { eq }) => eq(user.id, input.sessionUserId),
-    columns: { id: true },
-  });
-
-  if (existingById) return existingById.id;
-
-  const existingByEmail = await input.db.query.users.findFirst({
-    where: (user, { eq }) => eq(user.email, input.email),
-    columns: { id: true },
-  });
-
-  if (existingByEmail) return existingByEmail.id;
-
-  await input.db.insert(users).values({
-    id: input.sessionUserId,
-    email: input.email,
-    name: input.name,
-    passwordHash: "__managed_by_nextauth__",
-  });
-
-  return input.sessionUserId;
-}
-
 export const experimentsRouter = createTRPCRouter({
   createExperiment: protectedProcedure
     .input(createExperimentInput)
     .mutation(async ({ ctx, input }) => {
       const userId = await getOrCreateDbUser({
         db: ctx.db,
-        sessionUserId: ctx.session.user.id,
-        email: ctx.session.user.email ?? `${ctx.session.user.id}@local`,
-        name: ctx.session.user.name ?? "Local User",
+        ...userInfoFromSession(ctx.session),
       });
 
       const [createdExperiment] = await ctx.db
@@ -77,9 +46,7 @@ export const experimentsRouter = createTRPCRouter({
   getExperiments: protectedProcedure.query(async ({ ctx }) => {
     const userId = await getOrCreateDbUser({
       db: ctx.db,
-      sessionUserId: ctx.session.user.id,
-      email: ctx.session.user.email ?? `${ctx.session.user.id}@local`,
-      name: ctx.session.user.name ?? "Local User",
+      ...userInfoFromSession(ctx.session),
     });
 
     return ctx.db
@@ -94,9 +61,7 @@ export const experimentsRouter = createTRPCRouter({
     .query(async ({ ctx, input }) => {
       const userId = await getOrCreateDbUser({
         db: ctx.db,
-        sessionUserId: ctx.session.user.id,
-        email: ctx.session.user.email ?? `${ctx.session.user.id}@local`,
-        name: ctx.session.user.name ?? "Local User",
+        ...userInfoFromSession(ctx.session),
       });
 
       const experiment = await ctx.db.query.experiments.findFirst({
@@ -119,9 +84,7 @@ export const experimentsRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const userId = await getOrCreateDbUser({
         db: ctx.db,
-        sessionUserId: ctx.session.user.id,
-        email: ctx.session.user.email ?? `${ctx.session.user.id}@local`,
-        name: ctx.session.user.name ?? "Local User",
+        ...userInfoFromSession(ctx.session),
       });
 
       const [updatedExperiment] = await ctx.db
@@ -149,9 +112,7 @@ export const experimentsRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const userId = await getOrCreateDbUser({
         db: ctx.db,
-        sessionUserId: ctx.session.user.id,
-        email: ctx.session.user.email ?? `${ctx.session.user.id}@local`,
-        name: ctx.session.user.name ?? "Local User",
+        ...userInfoFromSession(ctx.session),
       });
 
       const [deletedExperiment] = await ctx.db

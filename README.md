@@ -55,3 +55,7 @@ Open [http://localhost:3000](http://localhost:3000), then create an account at `
 - `/experiments/create`
 - `/experiments/[experimentId]`
 - `/experiments/[experimentId]/edit`
+
+### Runs & channels (Phase 4)
+
+- `/experiments/[experimentId]/runs/[runId]`
