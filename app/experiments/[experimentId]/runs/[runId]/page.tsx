@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { ChannelForm } from "@/components/channels/ChannelForm";
 import { ChannelList } from "@/components/channels/ChannelList";
 import { PageLayout } from "@/components/PageLayout";
+import { RunDetails } from "@/components/runs/RunDetails";
 import { RunForm } from "@/components/runs/RunForm";
 import { ChannelSelector } from "@/components/telemetry/ChannelSelector";
 import { MetricsPanel } from "@/components/telemetry/MetricsPanel";
@@ -126,12 +127,7 @@ export default function RunDetailsPage() {
 
       {runQuery.data && (
         <div className="space-y-6">
-          <div className="rounded-xl border border-gray-800 bg-gray-900/60 p-5">
-            <h2 className="text-xl font-semibold text-white">{runQuery.data.name}</h2>
-            <p className="mt-1 text-sm text-gray-400">
-              Created {new Date(runQuery.data.createdAt).toLocaleString()}
-            </p>
-          </div>
+          <RunDetails run={runQuery.data} />
 
           <RunForm
             submitLabel="Update run"

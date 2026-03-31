@@ -88,15 +88,26 @@ export function LoginForm() {
         </button>
       </form>
 
-      <p className="text-sm text-gray-400">
-        New to Xpectra?{" "}
-        <Link
-          href="/register"
-          className="font-medium text-blue-400 transition hover:text-blue-300"
-        >
-          Create an account
-        </Link>
-      </p>
+      <div className="space-y-2">
+        <p className="text-sm text-gray-400">
+          New to Xpectra?{" "}
+          <Link
+            href="/register"
+            className="font-medium text-blue-400 transition hover:text-blue-300"
+          >
+            Create an account
+          </Link>
+        </p>
+        <p className="text-sm text-gray-400">
+          Forgot password?{" "}
+          <Link
+            href="/forgot-password"
+            className="font-medium text-blue-400 transition hover:text-blue-300"
+          >
+            Reset here
+          </Link>
+        </p>
+      </div>
     </div>
   );
 }

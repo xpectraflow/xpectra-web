@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getToken } from "next-auth/jwt";
 
-const PUBLIC_ROUTES = new Set(["/login", "/register"]);
+const PUBLIC_ROUTES = new Set(["/login", "/register", "/forgot-password"]);
 const NEXTAUTH_SECRET =
   process.env.NEXTAUTH_SECRET ??
   "xpectra-dev-secret-change-me";

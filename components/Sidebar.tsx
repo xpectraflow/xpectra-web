@@ -2,6 +2,7 @@
 
 import {
   Rocket,
+  House,
   BarChart3,
   Database,
   Users,
@@ -53,6 +54,7 @@ export function Sidebar() {
             <div className="mb-2 px-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
               Home
             </div>
+            <SidebarItem href="/" icon={House} label="Dashboard" />
             <SidebarItem href="/quickstart" icon={Rocket} label="Quickstart" />
             <SidebarItem href="/usage" icon={BarChart3} label="Usage" />
           </div>

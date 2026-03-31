@@ -1,8 +1,50 @@
 @import "tailwindcss";
 
 :root {
-  --background: #0a0a0a;
-  --foreground: #ededed;
+  --background: lab(4.61971% -.213951 -.65093);
+  --foreground: lab(100% 0 0);
+  --card: lab(8.2962% .06596 -1.88268);
+  --card-foreground: lab(100% 0 0);
+  --popover: lab(8.2962% .06596 -1.88268);
+  --popover-foreground: lab(100% 0 0);
+  --primary: lab(44.3869% 69.8196 28.2972);
+  --primary-foreground: lab(98.1073% 1.13019 .396466);
+  --secondary: lab(98.5848% 0 0);
+  --secondary-foreground: lab(9.7288% -.00000745058 0);
+  --muted: lab(5.25717% .0253394 -.733343);
+  --muted-foreground: lab(62.6044% .0478029 -1.366);
+  --accent: lab(14.1477% -.176191 -3.72853);
+  --accent-foreground: lab(98.1073% 1.13019 .396466);
+  --destructive: lab(52.2487% 78.7505 29.5481);
+  --destructive-foreground: lab(98.1073% 1.13019 .396466);
+  --workflows-submitted: lab(89.8848% -.0000298023 0);
+  --workflows-running: lab(40.3584% 18.1225 -70.7818);
+  --workflows-started: lab(80.9083% 8.77425 81.5567);
+  --workflows-completed: lab(59.9611% -49.1646 38.4309);
+  --workflows-failed: lab(44.4582% 59.7781 41.1188);
+  --workflows-canceled: lab(65.9246% -2.42758 -10.7676);
+  --border: lab(14.7428% .122577 -3.52346);
+  --input: lab(24.1518% .09951 -3.53504);
+  --ring: lab(80.2104% -.0000298023 0);
+  --chart-1: lab(49.6616% 71.6932 30.759);
+  --chart-2: lab(88.7116% 14.3218 2.70398);
+  --chart-3: lab(66.7156% 46.1078 10.8581);
+  --chart-4: lab(77.7228% 29.9096 6.06056);
+  --chart-5: lab(57.4344% 59.8941 17.6762);
+  --sidebar-background: lab(1.92111% 0 0);
+  --sidebar-foreground: lab(60.3017% .0344217 -.987148);
+  --sidebar-accent: lab(9.86245% .59516 -2.0952);
+  --sidebar-accent-foreground: lab(98.84% .0000298023 -.0000119209);
+  --sidebar-border: lab(14.7428% .122577 -3.52346);
+  --sidebar-ring: lab(80.2104% -.0000298023 0);
+  --shadow-2xs: 0 1px 3px 0px lab(0% 0 0 / .05);
+  --shadow-xs: 0 1px 3px 0px lab(0% 0 0 / .05);
+  --shadow-sm: 0 1px 3px 0px lab(0% 0 0 / .1), 0 1px 2px -1px lab(0% 0 0 / .1);
+  --shadow: 0 1px 3px 0px lab(0% 0 0 / .1), 0 1px 2px -1px lab(0% 0 0 / .1);
+  --shadow-md: 0 1px 3px 0px lab(0% 0 0 / .1), 0 2px 4px -1px lab(0% 0 0 / .1);
+  --shadow-lg: 0 1px 3px 0px lab(0% 0 0 / .1), 0 4px 6px -1px lab(0% 0 0 / .1);
+  --shadow-xl: 0 1px 3px 0px lab(0% 0 0 / .1), 0 8px 10px -1px lab(0% 0 0 / .1);
+  --shadow-2xl: 0 1px 3px 0px lab(0% 0 0 / .25);
 }
 
 @theme inline {
