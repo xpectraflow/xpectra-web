@@ -13,10 +13,10 @@ import {
   HelpCircle,
   BookOpen,
   MessageCircle,
-  Search,
   LogOut,
   FlaskConical,
 } from 'lucide-react';
+import Image from 'next/image';
 import { SidebarItem } from './SidebarItem';
 import { useDevices } from '@/contexts/DeviceContext';
 import { signOut, useSession } from "next-auth/react";
@@ -29,21 +29,19 @@ export function Sidebar() {
     <div className="flex h-screen w-64 flex-col border-r border-sidebar-border bg-sidebar-background">
       {/* Top Section */}
       <div className="border-b border-sidebar-border p-4">
-        <div className="mb-4">
-          <div className="text-xs font-medium uppercase tracking-wider text-sidebar-foreground">
-            Workspace
+        <div className="flex items-center gap-3">
+          <div className="relative h-8 w-9 overflow-hidden rounded-lg">
+            <Image
+              src="/logo.svg"
+              alt="Xpectra logo"
+              fill
+              className="object-contain"
+              priority
+            />
           </div>
-          <div className="mt-1 text-sm font-medium text-sidebar-accent-foreground">
-            Personal Workspace
+          <div className="text-lg font-semibold text-sidebar-accent-foreground">
+            Xpectra
           </div>
-        </div>
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-sidebar-foreground" />
-          <input
-            type="text"
-            placeholder="Search..."
-            className="w-full rounded-lg border border-input bg-card py-2 pl-10 pr-3 text-sm text-card-foreground placeholder:text-muted-foreground focus:outline-none"
-          />
         </div>
       </div>
 

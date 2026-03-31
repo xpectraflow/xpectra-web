@@ -16,9 +16,6 @@ export default function Home() {
           guide.
         </p>
         <div className="mt-6 rounded-lg border border-border bg-background/50 p-4">
-          <h2 className="mb-2 text-sm font-medium text-foreground">
-            tRPC auth bootstrap
-          </h2>
           <SessionStatusCard />
         </div>
       </div>

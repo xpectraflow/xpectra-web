@@ -10,9 +10,6 @@ export function Header() {
     <header className="sticky top-0 z-10 mb-6 border-b border-border bg-background/95 px-8 py-4 backdrop-blur">
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-6">
-          <Link href="/" className="text-sm font-semibold text-foreground">
-            Xpectra
-          </Link>
           <nav className="flex items-center gap-4 text-xs text-muted-foreground">
             <Link href="/experiments" className="transition hover:text-foreground">
               Experiments
