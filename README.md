@@ -59,3 +59,9 @@ Open [http://localhost:3000](http://localhost:3000), then create an account at `
 ### Runs & channels (Phase 4)
 
 - `/experiments/[experimentId]/runs/[runId]`
+
+### Telemetry visualization (Phase 5)
+
+- tRPC procedure: `telemetry.getTelemetryData`
+- Data source: `xpectra-consumer` gRPC `TelemetryService/Query` (hypertable-backed)
+- Components: `TelemetryChart` (Apache ECharts), `ChannelSelector`, `TimeRangeSelector`, `MetricsPanel`

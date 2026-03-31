@@ -2,18 +2,42 @@
 
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ChannelForm } from "@/components/channels/ChannelForm";
 import { ChannelList } from "@/components/channels/ChannelList";
 import { PageLayout } from "@/components/PageLayout";
 import { RunForm } from "@/components/runs/RunForm";
+import { ChannelSelector } from "@/components/telemetry/ChannelSelector";
+import { MetricsPanel } from "@/components/telemetry/MetricsPanel";
+import { TelemetryChart } from "@/components/telemetry/TelemetryChart";
+import { TimeRangeSelector } from "@/components/telemetry/TimeRangeSelector";
 import { trpc } from "@/lib/trpc";
+
+type TimeRangePreset = "1h" | "6h" | "24h" | "7d";
+
+function rangeForPreset(preset: TimeRangePreset) {
+  const now = new Date();
+  const from = new Date(now);
+  if (preset === "1h") from.setHours(now.getHours() - 1);
+  if (preset === "6h") from.setHours(now.getHours() - 6);
+  if (preset === "24h") from.setDate(now.getDate() - 1);
+  if (preset === "7d") from.setDate(now.getDate() - 7);
+
+  return {
+    from: from.toISOString(),
+    to: now.toISOString(),
+    maxPointsPerChannel: 800,
+  };
+}
 
 export default function RunDetailsPage() {
   const params = useParams<{ experimentId: string; runId: string }>();
   const router = useRouter();
   const utils = trpc.useUtils();
   const [deletingChannelId, setDeletingChannelId] = useState<string | null>(null);
+  const [selectedPreset, setSelectedPreset] = useState<TimeRangePreset>("1h");
+  const [telemetryRange, setTelemetryRange] = useState(rangeForPreset("1h"));
+  const [selectedChannelIds, setSelectedChannelIds] = useState<string[]>([]);
 
   const runQuery = trpc.runs.getRunById.useQuery({
     experimentId: params.experimentId,
@@ -24,6 +48,28 @@ export default function RunDetailsPage() {
     experimentId: params.experimentId,
     runId: params.runId,
   });
+
+  const telemetryQuery = trpc.telemetry.getTelemetryData.useQuery(
+    {
+      experimentId: params.experimentId,
+      runId: params.runId,
+      channelIds: selectedChannelIds,
+      range: telemetryRange,
+    },
+    {
+      enabled: selectedChannelIds.length > 0,
+    },
+  );
+
+  useEffect(() => {
+    if (!channelsQuery.data) return;
+
+    setSelectedChannelIds((prev) => {
+      const validIds = channelsQuery.data.map((channel) => channel.id);
+      if (prev.length === 0) return validIds;
+      return prev.filter((id) => validIds.includes(id));
+    });
+  }, [channelsQuery.data]);
 
   const updateRunMutation = trpc.runs.updateRun.useMutation({
     onSuccess: async () => {
@@ -150,6 +196,47 @@ export default function RunDetailsPage() {
                   });
                 }}
               />
+            )}
+          </section>
+
+          <section className="space-y-4">
+            <h3 className="text-lg font-semibold text-white">Telemetry</h3>
+
+            {channelsQuery.data && (
+              <div className="grid gap-4 lg:grid-cols-2">
+                <ChannelSelector
+                  channels={channelsQuery.data.map((channel) => ({
+                    id: channel.id,
+                    name: channel.name,
+                  }))}
+                  selectedChannelIds={selectedChannelIds}
+                  onChange={setSelectedChannelIds}
+                />
+                <TimeRangeSelector
+                  selectedPreset={selectedPreset}
+                  onPresetChange={(preset, range) => {
+                    setSelectedPreset(preset);
+                    setTelemetryRange(range);
+                  }}
+                />
+              </div>
+            )}
+
+            {telemetryQuery.isLoading && (
+              <p className="text-sm text-gray-400">Loading telemetry...</p>
+            )}
+
+            {telemetryQuery.error && (
+              <p className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300">
+                Failed to load telemetry: {telemetryQuery.error.message}
+              </p>
+            )}
+
+            {telemetryQuery.data && (
+              <div className="space-y-4">
+                <TelemetryChart series={telemetryQuery.data.series} />
+                <MetricsPanel series={telemetryQuery.data.series} />
+              </div>
             )}
           </section>
         </div>
