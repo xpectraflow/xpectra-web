@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState } from 'react';
 import { Plus } from 'lucide-react';
@@ -18,7 +18,7 @@ export default function ClustersPage() {
         action={
           <button
             onClick={() => setIsModalOpen(true)}
-            className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
+            className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-foreground transition-colors hover:opacity-90"
           >
             <Plus className="h-4 w-4" />
             Add Custom Cluster
@@ -29,14 +29,14 @@ export default function ClustersPage() {
           {clusters.map((cluster, index) => (
             <div
               key={cluster.id || index}
-              className="rounded-lg border border-gray-800 bg-gray-900/50 p-6"
+              className="rounded-lg border border-border bg-card/50 p-6"
             >
               <div className="mb-4 flex items-start justify-between">
                 <div>
-                  <h3 className="text-lg font-semibold text-white">
+                  <h3 className="text-lg font-semibold text-foreground">
                     {cluster.name}
                   </h3>
-                  <p className="mt-1 text-sm text-gray-400">
+                  <p className="mt-1 text-sm text-muted-foreground">
                     {cluster.primaryUse || cluster.workload}
                   </p>
                 </div>
@@ -47,33 +47,33 @@ export default function ClustersPage() {
                         ? 'bg-green-900/30 text-green-300'
                         : cluster.status === 'Provisioning'
                         ? 'bg-yellow-900/30 text-yellow-300'
-                        : 'bg-gray-800 text-gray-300'
+                        : 'bg-accent text-muted-foreground'
                     }`}
                   >
                     {cluster.status}
                   </span>
                   {cluster.status === 'Provisioning' && (
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-muted-foreground">
                       Cluster setup in progress
                     </p>
                   )}
                 </div>
               </div>
-              <div className="mt-4 space-y-2 border-t border-gray-800 pt-4">
+              <div className="mt-4 space-y-2 border-t border-border pt-4">
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-400">Type</span>
-                  <span className="text-gray-300">
+                  <span className="text-muted-foreground">Type</span>
+                  <span className="text-muted-foreground">
                     {cluster.type || cluster.computeType}
                   </span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-400">Region</span>
-                  <span className="text-gray-300">{cluster.region}</span>
+                  <span className="text-muted-foreground">Region</span>
+                  <span className="text-muted-foreground">{cluster.region}</span>
                 </div>
                 {cluster.provider && (
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-400">Provider</span>
-                    <span className="text-gray-300">{cluster.provider}</span>
+                    <span className="text-muted-foreground">Provider</span>
+                    <span className="text-muted-foreground">{cluster.provider}</span>
                   </div>
                 )}
               </div>
@@ -89,3 +89,4 @@ export default function ClustersPage() {
     </>
   );
 }
+

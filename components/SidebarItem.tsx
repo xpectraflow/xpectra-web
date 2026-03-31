@@ -25,8 +25,8 @@ export function SidebarItem({
       href={href}
       className={`flex items-center justify-between gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
         isActive
-          ? 'bg-gray-800 text-white'
-          : 'text-gray-400 hover:bg-gray-800/50 hover:text-gray-300'
+          ? 'bg-sidebar-accent text-sidebar-accent-foreground'
+          : 'text-sidebar-foreground hover:bg-sidebar-accent/70 hover:text-sidebar-accent-foreground'
       }`}
     >
       <div className="flex items-center gap-3">
@@ -34,7 +34,7 @@ export function SidebarItem({
         <span>{label}</span>
       </div>
       {count !== undefined && (
-        <span className="rounded-full bg-gray-800 px-2 py-0.5 text-xs font-medium text-gray-300">
+        <span className="rounded-full bg-sidebar-accent px-2 py-0.5 text-xs font-medium text-sidebar-accent-foreground">
           {count}
         </span>
       )}

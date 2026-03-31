@@ -1,4 +1,4 @@
-import { PageLayout } from '@/components/PageLayout';
+﻿import { PageLayout } from '@/components/PageLayout';
 
 const automations = [
   {
@@ -25,21 +25,21 @@ export default function AutomationsPage() {
         {automations.map((automation, index) => (
           <div
             key={index}
-            className="rounded-lg border border-gray-800 bg-gray-900/50 p-6"
+            className="rounded-lg border border-border bg-card/50 p-6"
           >
             <div className="flex items-start justify-between">
               <div className="flex-1">
-                <h3 className="text-sm font-semibold text-white">
+                <h3 className="text-sm font-semibold text-foreground">
                   {automation.name}
                 </h3>
                 <div className="mt-3 grid grid-cols-2 gap-4 text-sm">
                   <div>
-                    <span className="text-gray-400">Trigger:</span>
-                    <span className="ml-2 text-gray-300">{automation.trigger}</span>
+                    <span className="text-muted-foreground">Trigger:</span>
+                    <span className="ml-2 text-muted-foreground">{automation.trigger}</span>
                   </div>
                   <div>
-                    <span className="text-gray-400">Action:</span>
-                    <span className="ml-2 text-gray-300">{automation.action}</span>
+                    <span className="text-muted-foreground">Action:</span>
+                    <span className="ml-2 text-muted-foreground">{automation.action}</span>
                   </div>
                 </div>
               </div>
@@ -47,7 +47,7 @@ export default function AutomationsPage() {
                 className={`ml-4 inline-flex rounded-full px-3 py-1 text-xs font-medium ${
                   automation.status === 'Enabled'
                     ? 'bg-green-900/30 text-green-300'
-                    : 'bg-gray-800 text-gray-400'
+                    : 'bg-accent text-muted-foreground'
                 }`}
               >
                 {automation.status}
@@ -59,3 +59,4 @@ export default function AutomationsPage() {
     </PageLayout>
   );
 }
+

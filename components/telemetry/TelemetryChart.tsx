@@ -23,7 +23,7 @@ type TelemetryChartProps = {
 export function TelemetryChart({ series }: TelemetryChartProps) {
   if (series.length === 0) {
     return (
-      <div className="rounded-xl border border-gray-800 bg-gray-900/60 p-6 text-sm text-gray-400">
+      <div className="rounded-xl border border-border bg-card p-6 text-sm text-muted-foreground">
         No telemetry data for the selected filters.
       </div>
     );
@@ -31,13 +31,16 @@ export function TelemetryChart({ series }: TelemetryChartProps) {
 
   const option = {
     backgroundColor: "transparent",
-    tooltip: {
-      trigger: "axis",
-    },
-    legend: {
-      top: 8,
-      textStyle: { color: "#d1d5db" },
-    },
+      tooltip: {
+        trigger: "axis",
+        backgroundColor: "var(--popover)",
+        borderColor: "var(--border)",
+        textStyle: { color: "var(--popover-foreground)" },
+      },
+      legend: {
+        top: 8,
+        textStyle: { color: "var(--muted-foreground)" },
+      },
     grid: {
       left: 16,
       right: 16,
@@ -45,16 +48,16 @@ export function TelemetryChart({ series }: TelemetryChartProps) {
       bottom: 20,
       containLabel: true,
     },
-    xAxis: {
-      type: "time",
-      axisLabel: { color: "#9ca3af" },
-      splitLine: { lineStyle: { color: "rgba(148,163,184,0.12)" } },
-    },
-    yAxis: {
-      type: "value",
-      axisLabel: { color: "#9ca3af" },
-      splitLine: { lineStyle: { color: "rgba(148,163,184,0.12)" } },
-    },
+      xAxis: {
+        type: "time",
+        axisLabel: { color: "var(--muted-foreground)" },
+        splitLine: { lineStyle: { color: "var(--border)" } },
+      },
+      yAxis: {
+        type: "value",
+        axisLabel: { color: "var(--muted-foreground)" },
+        splitLine: { lineStyle: { color: "var(--border)" } },
+      },
     series: series.map((entry) => ({
       type: "line",
       name: entry.channel.name,
@@ -65,7 +68,7 @@ export function TelemetryChart({ series }: TelemetryChartProps) {
   };
 
   return (
-    <div className="rounded-xl border border-gray-800 bg-gray-900/60 p-2">
+    <div className="rounded-xl border border-border bg-card p-2">
       <ReactECharts option={option} style={{ width: "100%", height: 360 }} />
     </div>
   );

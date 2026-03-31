@@ -17,7 +17,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       <TrpcProvider>
         <DeviceProvider>
           <ClusterProvider>
-            <div className="flex h-screen overflow-hidden bg-gray-950">
+            <div className="flex h-screen overflow-hidden bg-background text-foreground">
               <Sidebar />
               <main className="flex-1 overflow-y-auto">
                 <Header />

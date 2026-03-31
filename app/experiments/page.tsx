@@ -28,18 +28,18 @@ export default function ExperimentsPage() {
       action={
         <Link
           href="/experiments/create"
-          className="rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-blue-500"
+          className="rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground transition hover:opacity-90"
         >
           New experiment
         </Link>
       }
     >
       {experimentsQuery.isLoading && (
-        <p className="text-sm text-gray-400">Loading experiments...</p>
+        <p className="text-sm text-muted-foreground">Loading experiments...</p>
       )}
 
       {experimentsQuery.error && (
-        <p className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300">
+        <p className="rounded-lg border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive-foreground">
           Failed to load experiments: {experimentsQuery.error.message}
         </p>
       )}

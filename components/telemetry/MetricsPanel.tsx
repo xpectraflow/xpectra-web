@@ -28,7 +28,7 @@ function formatMetric(value: number | null, unit: string | null): string {
 export function MetricsPanel({ series }: MetricsPanelProps) {
   if (series.length === 0) {
     return (
-      <div className="rounded-xl border border-gray-800 bg-gray-900/60 p-4 text-sm text-gray-400">
+      <div className="rounded-xl border border-border bg-card p-4 text-sm text-muted-foreground">
         No metrics available for the selected channels and time range.
       </div>
     );
@@ -39,31 +39,31 @@ export function MetricsPanel({ series }: MetricsPanelProps) {
       {series.map((entry) => (
         <div
           key={entry.channel.id}
-          className="rounded-xl border border-gray-800 bg-gray-900/60 p-4"
+          className="rounded-xl border border-border bg-card p-4"
         >
-          <p className="mb-2 text-sm font-semibold text-white">{entry.channel.name}</p>
+          <p className="mb-2 text-sm font-semibold text-card-foreground">{entry.channel.name}</p>
           <div className="grid grid-cols-2 gap-2 text-xs">
-            <p className="text-gray-400">
+            <p className="text-muted-foreground">
               Min:{" "}
-              <span className="text-gray-200">
+              <span className="text-card-foreground">
                 {formatMetric(entry.metrics.min, entry.channel.unit)}
               </span>
             </p>
-            <p className="text-gray-400">
+            <p className="text-muted-foreground">
               Max:{" "}
-              <span className="text-gray-200">
+              <span className="text-card-foreground">
                 {formatMetric(entry.metrics.max, entry.channel.unit)}
               </span>
             </p>
-            <p className="text-gray-400">
+            <p className="text-muted-foreground">
               Mean:{" "}
-              <span className="text-gray-200">
+              <span className="text-card-foreground">
                 {formatMetric(entry.metrics.mean, entry.channel.unit)}
               </span>
             </p>
-            <p className="text-gray-400">
+            <p className="text-muted-foreground">
               Latest:{" "}
-              <span className="text-gray-200">
+              <span className="text-card-foreground">
                 {formatMetric(entry.metrics.latest, entry.channel.unit)}
               </span>
             </p>

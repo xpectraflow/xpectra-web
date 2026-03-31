@@ -1,4 +1,4 @@
-import { PageLayout } from '@/components/PageLayout';
+﻿import { PageLayout } from '@/components/PageLayout';
 
 export default function SharedDatasetsPage() {
   return (
@@ -6,11 +6,12 @@ export default function SharedDatasetsPage() {
       title="Shared with me"
       description="Datasets shared with you by other users"
     >
-      <div className="rounded-lg border border-gray-800 bg-gray-900/50 p-8">
-        <p className="text-gray-400">
+      <div className="rounded-lg border border-border bg-card/50 p-8">
+        <p className="text-muted-foreground">
           View datasets that have been shared with you here.
         </p>
       </div>
     </PageLayout>
   );
 }
+

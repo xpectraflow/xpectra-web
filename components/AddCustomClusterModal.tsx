@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, FormEvent, useEffect } from 'react';
 import { X } from 'lucide-react';
@@ -90,12 +90,12 @@ export function AddCustomClusterModal({
       }}
       onWheel={(e) => e.stopPropagation()}
     >
-      <div className="flex h-full max-h-[90vh] w-full max-w-2xl flex-col rounded-lg border border-gray-800 bg-gray-900 shadow-xl overflow-hidden">
-        <div className="flex-shrink-0 flex items-center justify-between border-b border-gray-800 bg-gray-900 px-6 py-4">
-          <h2 className="text-xl font-semibold text-white">Add Custom Cluster</h2>
+      <div className="flex h-full max-h-[90vh] w-full max-w-2xl flex-col rounded-lg border border-border bg-card shadow-xl overflow-hidden">
+        <div className="flex-shrink-0 flex items-center justify-between border-b border-border bg-card px-6 py-4">
+          <h2 className="text-xl font-semibold text-foreground">Add Custom Cluster</h2>
           <button
             onClick={onClose}
-            className="rounded-lg p-1 text-gray-400 transition-colors hover:bg-gray-800 hover:text-white"
+            className="rounded-lg p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
           >
             <X className="h-5 w-5" />
           </button>
@@ -106,16 +106,16 @@ export function AddCustomClusterModal({
             {/* 1. Cloud Provider */}
             <div className="space-y-4">
               <div>
-                <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-400">
+                <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
                   1. Cloud Provider
                 </h3>
-                <div className="rounded-lg border border-gray-800 bg-gray-950/50 p-4">
+                <div className="rounded-lg border border-border bg-background/50 p-4">
                   <div>
                     <label
                       htmlFor="provider"
-                      className="mb-1 block text-sm font-medium text-gray-300"
+                      className="mb-1 block text-sm font-medium text-muted-foreground"
                     >
-                      Cloud Provider <span className="text-red-400">*</span>
+                      Cloud Provider <span className="text-destructive">*</span>
                     </label>
                     <select
                       id="provider"
@@ -129,7 +129,7 @@ export function AddCustomClusterModal({
                           region: '', // Reset region when provider changes
                         });
                       }}
-                      className="w-full rounded-lg border border-gray-800 bg-gray-950 px-3 py-2 text-sm text-white focus:border-gray-700 focus:outline-none"
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-input focus:outline-none"
                     >
                       <option value="AWS">AWS</option>
                       <option value="GCP">GCP</option>
@@ -142,16 +142,16 @@ export function AddCustomClusterModal({
             {/* 2. Cluster Identity */}
             <div className="space-y-4">
               <div>
-                <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-400">
+                <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
                   2. Cluster Identity
                 </h3>
-                <div className="space-y-4 rounded-lg border border-gray-800 bg-gray-950/50 p-4">
+                <div className="space-y-4 rounded-lg border border-border bg-background/50 p-4">
                   <div>
                     <label
                       htmlFor="name"
-                      className="mb-1 block text-sm font-medium text-gray-300"
+                      className="mb-1 block text-sm font-medium text-muted-foreground"
                     >
-                      Cluster Name <span className="text-red-400">*</span>
+                      Cluster Name <span className="text-destructive">*</span>
                     </label>
                     <input
                       id="name"
@@ -161,7 +161,7 @@ export function AddCustomClusterModal({
                       onChange={(e) =>
                         setFormData({ ...formData, name: e.target.value })
                       }
-                      className="w-full rounded-lg border border-gray-800 bg-gray-950 px-3 py-2 text-sm text-white placeholder-gray-500 focus:border-gray-700 focus:outline-none"
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-input focus:outline-none"
                       placeholder="prod-analytics-cluster"
                     />
                   </div>
@@ -169,9 +169,9 @@ export function AddCustomClusterModal({
                   <div>
                     <label
                       htmlFor="region"
-                      className="mb-1 block text-sm font-medium text-gray-300"
+                      className="mb-1 block text-sm font-medium text-muted-foreground"
                     >
-                      Region <span className="text-red-400">*</span>
+                      Region <span className="text-destructive">*</span>
                     </label>
                     <select
                       id="region"
@@ -180,7 +180,7 @@ export function AddCustomClusterModal({
                       onChange={(e) =>
                         setFormData({ ...formData, region: e.target.value })
                       }
-                      className="w-full rounded-lg border border-gray-800 bg-gray-950 px-3 py-2 text-sm text-white focus:border-gray-700 focus:outline-none"
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-input focus:outline-none"
                     >
                       <option value="">Select region</option>
                       {currentRegions.map((region) => (
@@ -194,7 +194,7 @@ export function AddCustomClusterModal({
                   <div>
                     <label
                       htmlFor="computeType"
-                      className="mb-1 block text-sm font-medium text-gray-300"
+                      className="mb-1 block text-sm font-medium text-muted-foreground"
                     >
                       Compute Type
                     </label>
@@ -207,7 +207,7 @@ export function AddCustomClusterModal({
                           computeType: e.target.value as 'CPU' | 'GPU',
                         })
                       }
-                      className="w-full rounded-lg border border-gray-800 bg-gray-950 px-3 py-2 text-sm text-white focus:border-gray-700 focus:outline-none"
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-input focus:outline-none"
                     >
                       <option value="CPU">CPU</option>
                       <option value="GPU">GPU</option>
@@ -220,16 +220,16 @@ export function AddCustomClusterModal({
             {/* 3. Cloud Access */}
             <div className="space-y-4">
               <div>
-                <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-400">
+                <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
                   3. Cloud Access
                 </h3>
-                <div className="space-y-4 rounded-lg border border-gray-800 bg-gray-950/50 p-4">
+                <div className="space-y-4 rounded-lg border border-border bg-background/50 p-4">
                   <div>
                     <label
                       htmlFor="accessKeyId"
-                      className="mb-1 block text-sm font-medium text-gray-300"
+                      className="mb-1 block text-sm font-medium text-muted-foreground"
                     >
-                      Access Key ID <span className="text-red-400">*</span>
+                      Access Key ID <span className="text-destructive">*</span>
                     </label>
                     <input
                       id="accessKeyId"
@@ -239,7 +239,7 @@ export function AddCustomClusterModal({
                       onChange={(e) =>
                         setFormData({ ...formData, accessKeyId: e.target.value })
                       }
-                      className="w-full rounded-lg border border-gray-800 bg-gray-950 px-3 py-2 text-sm text-white placeholder-gray-500 focus:border-gray-700 focus:outline-none"
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-input focus:outline-none"
                       placeholder="Enter access key ID"
                     />
                   </div>
@@ -247,9 +247,9 @@ export function AddCustomClusterModal({
                   <div>
                     <label
                       htmlFor="secretAccessKey"
-                      className="mb-1 block text-sm font-medium text-gray-300"
+                      className="mb-1 block text-sm font-medium text-muted-foreground"
                     >
-                      Secret Access Key <span className="text-red-400">*</span>
+                      Secret Access Key <span className="text-destructive">*</span>
                     </label>
                     <input
                       id="secretAccessKey"
@@ -262,10 +262,10 @@ export function AddCustomClusterModal({
                           secretAccessKey: e.target.value,
                         })
                       }
-                      className="w-full rounded-lg border border-gray-800 bg-gray-950 px-3 py-2 text-sm text-white placeholder-gray-500 focus:border-gray-700 focus:outline-none"
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-input focus:outline-none"
                       placeholder="Enter secret access key"
                     />
-                    <p className="mt-1 text-xs text-gray-500">
+                    <p className="mt-1 text-xs text-muted-foreground">
                       Credentials are used only to establish cluster connectivity.
                     </p>
                   </div>
@@ -276,14 +276,14 @@ export function AddCustomClusterModal({
             {/* 4. Intent */}
             <div className="space-y-4">
               <div>
-                <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-400">
+                <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
                   4. Intent
                 </h3>
-                <div className="rounded-lg border border-gray-800 bg-gray-950/50 p-4">
+                <div className="rounded-lg border border-border bg-background/50 p-4">
                   <div>
                     <label
                       htmlFor="workload"
-                      className="mb-1 block text-sm font-medium text-gray-300"
+                      className="mb-1 block text-sm font-medium text-muted-foreground"
                     >
                       Primary Workload
                     </label>
@@ -293,7 +293,7 @@ export function AddCustomClusterModal({
                       onChange={(e) =>
                         setFormData({ ...formData, workload: e.target.value })
                       }
-                      className="w-full rounded-lg border border-gray-800 bg-gray-950 px-3 py-2 text-sm text-white focus:border-gray-700 focus:outline-none"
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-input focus:outline-none"
                     >
                       {WORKLOADS.map((workload) => (
                         <option key={workload} value={workload}>
@@ -308,17 +308,17 @@ export function AddCustomClusterModal({
           </div>
 
           {/* Form Actions */}
-          <div className="mt-6 flex gap-3 border-t border-gray-800 pt-6">
+          <div className="mt-6 flex gap-3 border-t border-border pt-6">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 rounded-lg border border-gray-800 bg-gray-900 px-4 py-2 text-sm font-medium text-gray-300 transition-colors hover:bg-gray-800"
+              className="flex-1 rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="flex-1 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
+              className="flex-1 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-foreground transition-colors hover:opacity-90"
             >
               Add Cluster
             </button>
@@ -328,3 +328,4 @@ export function AddCustomClusterModal({
     </div>
   );
 }
+

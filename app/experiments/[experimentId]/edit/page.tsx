@@ -33,18 +33,18 @@ export default function EditExperimentPage() {
       action={
         <Link
           href={`/experiments/${params.experimentId}`}
-          className="rounded-lg border border-gray-700 px-3 py-2 text-sm text-gray-200 transition hover:bg-gray-800"
+          className="rounded-lg border border-input px-3 py-2 text-sm text-muted-foreground transition hover:bg-accent hover:text-accent-foreground"
         >
           Cancel
         </Link>
       }
     >
       {experimentQuery.isLoading && (
-        <p className="text-sm text-gray-400">Loading experiment...</p>
+        <p className="text-sm text-muted-foreground">Loading experiment...</p>
       )}
 
       {experimentQuery.error && (
-        <p className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300">
+        <p className="rounded-lg border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive-foreground">
           Failed to load experiment: {experimentQuery.error.message}
         </p>
       )}
@@ -71,7 +71,7 @@ export default function EditExperimentPage() {
       )}
 
       {updateMutation.error && (
-        <p className="mt-4 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300">
+        <p className="mt-4 rounded-lg border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive-foreground">
           Failed to update experiment: {updateMutation.error.message}
         </p>
       )}

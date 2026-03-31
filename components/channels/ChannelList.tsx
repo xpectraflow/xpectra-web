@@ -15,13 +15,13 @@ type ChannelListProps = {
 
 export function ChannelList({ channels, deletingId, onDelete }: ChannelListProps) {
   if (channels.length === 0) {
-    return <p className="text-sm text-gray-400">No channels configured for this run.</p>;
+    return <p className="text-sm text-muted-foreground">No channels configured for this run.</p>;
   }
 
   return (
-    <div className="overflow-hidden rounded-xl border border-gray-800 bg-gray-900/60">
-      <table className="min-w-full divide-y divide-gray-800 text-sm">
-        <thead className="bg-gray-900 text-xs uppercase tracking-wider text-gray-400">
+    <div className="overflow-hidden rounded-xl border border-border bg-card">
+      <table className="min-w-full divide-y divide-border text-sm">
+        <thead className="bg-muted text-xs uppercase tracking-wider text-muted-foreground">
           <tr>
             <th className="px-4 py-3 text-left">Name</th>
             <th className="px-4 py-3 text-left">Type</th>
@@ -29,19 +29,19 @@ export function ChannelList({ channels, deletingId, onDelete }: ChannelListProps
             <th className="px-4 py-3 text-right">Actions</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-gray-800">
+        <tbody className="divide-y divide-border">
           {channels.map((channel) => (
-            <tr key={channel.id} className="hover:bg-gray-900/80">
-              <td className="px-4 py-3 font-medium text-white">{channel.name}</td>
-              <td className="px-4 py-3 text-gray-300">{channel.dataType}</td>
-              <td className="px-4 py-3 text-gray-400">{channel.unit ?? "-"}</td>
+            <tr key={channel.id} className="hover:bg-accent/60">
+              <td className="px-4 py-3 font-medium text-card-foreground">{channel.name}</td>
+              <td className="px-4 py-3 text-muted-foreground">{channel.dataType}</td>
+              <td className="px-4 py-3 text-muted-foreground">{channel.unit ?? "-"}</td>
               <td className="px-4 py-3 text-right">
                 {onDelete && (
                   <button
                     type="button"
                     onClick={() => onDelete(channel.id)}
                     disabled={deletingId === channel.id}
-                    className="rounded-md border border-red-500/50 px-2.5 py-1 text-xs text-red-300 transition hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-70"
+                    className="rounded-md border border-destructive/50 px-2.5 py-1 text-xs text-destructive-foreground transition hover:bg-destructive/10 disabled:cursor-not-allowed disabled:opacity-70"
                   >
                     {deletingId === channel.id ? "Deleting..." : "Delete"}
                   </button>

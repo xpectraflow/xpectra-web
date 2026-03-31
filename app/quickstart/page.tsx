@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState } from 'react';
 import { Plus, Database, Zap, ArrowRight, Server } from 'lucide-react';
@@ -15,10 +15,10 @@ export default function QuickstartPage() {
         <div className="space-y-8">
           {/* Header Section */}
           <div className="text-center">
-            <h1 className="mb-3 text-3xl font-bold text-white">
+            <h1 className="mb-3 text-3xl font-bold text-foreground">
               Get started in 3 steps
             </h1>
-            <p className="text-lg text-gray-400">
+            <p className="text-lg text-muted-foreground">
               Model your sensors, organize datasets, and orchestrate compute.
             </p>
           </div>
@@ -26,21 +26,21 @@ export default function QuickstartPage() {
           {/* Steps Section */}
           <div className="grid gap-6 md:grid-cols-3">
             {/* Step 1 */}
-            <div className="rounded-lg border border-gray-800 bg-gray-900/50 p-6">
+            <div className="rounded-lg border border-border bg-card/50 p-6">
               <div className="mb-4 flex items-center gap-3">
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-600 text-sm font-semibold text-white">
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-sm font-semibold text-foreground">
                   1
                 </div>
-                <h2 className="text-lg font-semibold text-white">
+                <h2 className="text-lg font-semibold text-foreground">
                   Define a Device
                 </h2>
               </div>
-              <p className="mb-6 text-sm text-gray-400">
+              <p className="mb-6 text-sm text-muted-foreground">
                 Describe a physical or virtual sensor and what it emits.
               </p>
               <button
                 onClick={() => setIsModalOpen(true)}
-                className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
+                className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-foreground transition-colors hover:opacity-90"
               >
                 <Plus className="h-4 w-4" />
                 Add Device
@@ -48,21 +48,21 @@ export default function QuickstartPage() {
             </div>
 
             {/* Step 2 */}
-            <div className="rounded-lg border border-gray-800 bg-gray-900/50 p-6">
+            <div className="rounded-lg border border-border bg-card/50 p-6">
               <div className="mb-4 flex items-center gap-3">
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-700 text-sm font-semibold text-gray-300">
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-accent text-sm font-semibold text-muted-foreground">
                   2
                 </div>
-                <h2 className="text-lg font-semibold text-white">
+                <h2 className="text-lg font-semibold text-foreground">
                   View Datasets
                 </h2>
               </div>
-              <p className="mb-6 text-sm text-gray-400">
+              <p className="mb-6 text-sm text-muted-foreground">
                 Devices become datasets you can inspect and process.
               </p>
               <Link
                 href="/datasets"
-                className="flex w-full items-center justify-center gap-2 rounded-lg border border-gray-800 bg-gray-900 px-4 py-2 text-sm font-medium text-gray-300 transition-colors hover:bg-gray-800 hover:text-white"
+                className="flex w-full items-center justify-center gap-2 rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
               >
                 <Database className="h-4 w-4" />
                 View My Datasets
@@ -71,22 +71,22 @@ export default function QuickstartPage() {
             </div>
 
             {/* Step 3 */}
-            <div className="rounded-lg border border-gray-800 bg-gray-900/50 p-6">
+            <div className="rounded-lg border border-border bg-card/50 p-6">
               <div className="mb-4 flex items-center gap-3">
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-700 text-sm font-semibold text-gray-300">
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-accent text-sm font-semibold text-muted-foreground">
                   3
                 </div>
-                <h2 className="text-lg font-semibold text-white">
+                <h2 className="text-lg font-semibold text-foreground">
                   Run Compute
                 </h2>
               </div>
-              <p className="mb-6 text-sm text-gray-400">
+              <p className="mb-6 text-sm text-muted-foreground">
                 Attach jobs and automations to process data.
               </p>
               <div className="space-y-2">
                 <Link
                   href="/jobs"
-                  className="flex w-full items-center justify-center gap-2 rounded-lg border border-gray-800 bg-gray-900 px-4 py-2 text-sm font-medium text-gray-300 transition-colors hover:bg-gray-800 hover:text-white"
+                  className="flex w-full items-center justify-center gap-2 rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
                 >
                   <Zap className="h-4 w-4" />
                   View Jobs
@@ -94,7 +94,7 @@ export default function QuickstartPage() {
                 </Link>
                 <Link
                   href="/clusters"
-                  className="flex w-full items-center justify-center gap-2 rounded-lg border border-gray-800 bg-gray-900 px-4 py-2 text-sm font-medium text-gray-300 transition-colors hover:bg-gray-800 hover:text-white"
+                  className="flex w-full items-center justify-center gap-2 rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
                 >
                   <Server className="h-4 w-4" />
                   View Clusters
@@ -106,7 +106,7 @@ export default function QuickstartPage() {
 
           {/* Footer Hint */}
           <div className="text-center">
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-muted-foreground">
               Once defined, datasets can be linked to jobs, automations, and
               clusters.
             </p>
@@ -121,3 +121,4 @@ export default function QuickstartPage() {
     </>
   );
 }
+

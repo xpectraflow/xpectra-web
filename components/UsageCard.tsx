@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 interface UsageCardProps {
   title: string;
@@ -26,10 +26,10 @@ export function UsageCard({
   const offset = circumference - (progress / 100) * circumference;
 
   return (
-    <div className="rounded-lg border border-gray-800 bg-gray-900/50 p-6 shadow-sm">
+    <div className="rounded-lg border border-border bg-card/50 p-6 shadow-sm">
       <div className="mb-4">
-        <h3 className="text-sm font-semibold text-white">{title}</h3>
-        <p className="mt-1 text-xs text-gray-500">{subtitle}</p>
+        <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+        <p className="mt-1 text-xs text-muted-foreground">{subtitle}</p>
       </div>
 
       <div className="relative mx-auto mb-4 flex h-40 w-40 items-center justify-center">
@@ -74,15 +74,16 @@ export function UsageCard({
         {/* Center value */}
         <div className="absolute inset-0 flex items-center justify-center">
           <div className="text-center">
-            <div className="text-2xl font-semibold text-white">{value}</div>
+            <div className="text-2xl font-semibold text-foreground">{value}</div>
           </div>
         </div>
       </div>
 
       {/* Footer */}
       <div className="text-center">
-        <p className="text-xs text-gray-400">{footer}</p>
+        <p className="text-xs text-muted-foreground">{footer}</p>
       </div>
     </div>
   );
 }
+

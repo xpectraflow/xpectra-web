@@ -7,31 +7,31 @@ export function SessionStatusCard() {
 
   if (isLoading) {
     return (
-      <p className="text-sm text-gray-400">Loading session from tRPC...</p>
+      <p className="text-sm text-muted-foreground">Loading session from tRPC...</p>
     );
   }
 
   if (error) {
     return (
-      <p className="text-sm text-red-300">
+      <p className="text-sm text-destructive-foreground">
         Session check failed: {error.message}
       </p>
     );
   }
 
   if (!data?.isAuthenticated) {
-    return <p className="text-sm text-gray-400">No active session.</p>;
+    return <p className="text-sm text-muted-foreground">No active session.</p>;
   }
 
   return (
-    <div className="space-y-1 text-sm text-gray-300">
+    <div className="space-y-1 text-sm text-muted-foreground">
       <p>
         Signed in as{" "}
-        <span className="font-medium text-white">
+        <span className="font-medium text-foreground">
           {data.user?.name ?? "Unnamed user"}
         </span>
       </p>
-      <p className="text-gray-400">{data.user?.email}</p>
+      <p className="text-muted-foreground">{data.user?.email}</p>
     </div>
   );
 }

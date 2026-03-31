@@ -36,8 +36,8 @@ export function TimeRangeSelector({
   const presets: TimeRangePreset[] = ["1h", "6h", "24h", "7d"];
 
   return (
-    <div className="rounded-xl border border-gray-800 bg-gray-900/60 p-4">
-      <h3 className="mb-3 text-sm font-semibold text-white">Time range</h3>
+    <div className="rounded-xl border border-border bg-card p-4">
+      <h3 className="mb-3 text-sm font-semibold text-card-foreground">Time range</h3>
       <div className="flex flex-wrap gap-2">
         {presets.map((preset) => (
           <button
@@ -46,8 +46,8 @@ export function TimeRangeSelector({
             onClick={() => onPresetChange(preset, createRangeForPreset(preset))}
             className={`rounded-md border px-3 py-1.5 text-xs transition ${
               selectedPreset === preset
-                ? "border-blue-500 bg-blue-500/20 text-blue-200"
-                : "border-gray-700 text-gray-300 hover:bg-gray-800"
+                ? "border-primary bg-primary/20 text-primary"
+                : "border-input text-muted-foreground hover:bg-accent hover:text-accent-foreground"
             }`}
           >
             Last {preset}

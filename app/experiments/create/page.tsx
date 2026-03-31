@@ -33,7 +33,7 @@ export default function CreateExperimentPage() {
       />
 
       {createMutation.error && (
-        <p className="mt-4 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300">
+        <p className="mt-4 rounded-lg border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive-foreground">
           Failed to create experiment: {createMutation.error.message}
         </p>
       )}

@@ -26,8 +26,8 @@ export function ChannelSelector({
   }
 
   return (
-    <div className="rounded-xl border border-gray-800 bg-gray-900/60 p-4">
-      <h3 className="mb-3 text-sm font-semibold text-white">Channels</h3>
+    <div className="rounded-xl border border-border bg-card p-4">
+      <h3 className="mb-3 text-sm font-semibold text-card-foreground">Channels</h3>
       <div className="flex flex-wrap gap-2">
         {channels.map((channel) => {
           const selected = selectedChannelIds.includes(channel.id);
@@ -38,8 +38,8 @@ export function ChannelSelector({
               onClick={() => toggleChannel(channel.id)}
               className={`rounded-full border px-3 py-1 text-xs transition ${
                 selected
-                  ? "border-blue-500 bg-blue-500/20 text-blue-200"
-                  : "border-gray-700 text-gray-300 hover:bg-gray-800"
+                  ? "border-primary bg-primary/20 text-primary"
+                  : "border-input text-muted-foreground hover:bg-accent hover:text-accent-foreground"
               }`}
             >
               {channel.name}

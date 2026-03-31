@@ -35,14 +35,14 @@ export function RunForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-3 rounded-xl border border-gray-800 bg-gray-900/60 p-4">
-      <h3 className="text-sm font-semibold text-white">Run</h3>
+    <form onSubmit={handleSubmit} className="space-y-3 rounded-xl border border-border bg-card p-4">
+      <h3 className="text-sm font-semibold text-card-foreground">Run</h3>
 
       <input
         value={name}
         onChange={(event) => setName(event.target.value)}
         placeholder="Baseline run"
-        className="w-full rounded-lg border border-gray-700 bg-gray-950 px-3 py-2 text-sm text-white outline-none ring-blue-500 transition focus:ring-1"
+        className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground outline-none ring-ring transition focus:ring-1"
         maxLength={120}
         required
       />
@@ -50,7 +50,7 @@ export function RunForm({
       <select
         value={status}
         onChange={(event) => setStatus(event.target.value as RunFormValues["status"])}
-        className="w-full rounded-lg border border-gray-700 bg-gray-950 px-3 py-2 text-sm text-white outline-none ring-blue-500 transition focus:ring-1"
+        className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground outline-none ring-ring transition focus:ring-1"
       >
         <option value="queued">Queued</option>
         <option value="running">Running</option>
@@ -61,7 +61,7 @@ export function RunForm({
       <button
         type="submit"
         disabled={isSubmitting}
-        className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-medium text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-70"
+        className="rounded-lg bg-primary px-3 py-2 text-xs font-medium text-primary-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-70"
       >
         {isSubmitting ? "Saving..." : submitLabel}
       </button>

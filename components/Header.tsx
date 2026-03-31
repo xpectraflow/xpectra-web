@@ -7,20 +7,20 @@ export function Header() {
   const { data: session } = useSession();
 
   return (
-    <header className="sticky top-0 z-10 mb-6 border-b border-gray-800 bg-gray-950/95 px-8 py-4 backdrop-blur">
+    <header className="sticky top-0 z-10 mb-6 border-b border-border bg-background/95 px-8 py-4 backdrop-blur">
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-6">
-          <Link href="/" className="text-sm font-semibold text-white">
+          <Link href="/" className="text-sm font-semibold text-foreground">
             Xpectra
           </Link>
-          <nav className="flex items-center gap-4 text-xs text-gray-400">
-            <Link href="/experiments" className="transition hover:text-gray-200">
+          <nav className="flex items-center gap-4 text-xs text-muted-foreground">
+            <Link href="/experiments" className="transition hover:text-foreground">
               Experiments
             </Link>
-            <Link href="/datasets" className="transition hover:text-gray-200">
+            <Link href="/datasets" className="transition hover:text-foreground">
               Datasets
             </Link>
-            <Link href="/usage" className="transition hover:text-gray-200">
+            <Link href="/usage" className="transition hover:text-foreground">
               Usage
             </Link>
           </nav>
@@ -28,13 +28,13 @@ export function Header() {
 
         <div className="flex items-center gap-3">
           <div className="text-right">
-            <p className="text-xs text-gray-200">{session?.user?.name ?? "User"}</p>
-            <p className="text-xs text-gray-500">{session?.user?.email ?? ""}</p>
+            <p className="text-xs text-foreground">{session?.user?.name ?? "User"}</p>
+            <p className="text-xs text-muted-foreground">{session?.user?.email ?? ""}</p>
           </div>
           <button
             type="button"
             onClick={() => signOut({ callbackUrl: "/login" })}
-            className="rounded-md border border-gray-700 px-2.5 py-1.5 text-xs text-gray-300 transition hover:bg-gray-800 hover:text-white"
+            className="rounded-md border border-input px-2.5 py-1.5 text-xs text-muted-foreground transition hover:bg-accent hover:text-accent-foreground"
           >
             Logout
           </button>

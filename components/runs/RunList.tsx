@@ -23,13 +23,13 @@ export function RunList({
   deletingId,
 }: RunListProps) {
   if (runs.length === 0) {
-    return <p className="text-sm text-gray-400">No runs created for this experiment.</p>;
+    return <p className="text-sm text-muted-foreground">No runs created for this experiment.</p>;
   }
 
   return (
-    <div className="overflow-hidden rounded-xl border border-gray-800 bg-gray-900/60">
-      <table className="min-w-full divide-y divide-gray-800 text-sm">
-        <thead className="bg-gray-900 text-xs uppercase tracking-wider text-gray-400">
+    <div className="overflow-hidden rounded-xl border border-border bg-card">
+      <table className="min-w-full divide-y divide-border text-sm">
+        <thead className="bg-muted text-xs uppercase tracking-wider text-muted-foreground">
           <tr>
             <th className="px-4 py-3 text-left">Run</th>
             <th className="px-4 py-3 text-left">Status</th>
@@ -37,26 +37,26 @@ export function RunList({
             <th className="px-4 py-3 text-right">Actions</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-gray-800">
+        <tbody className="divide-y divide-border">
           {runs.map((run) => (
-            <tr key={run.id} className="hover:bg-gray-900/80">
+            <tr key={run.id} className="hover:bg-accent/60">
               <td className="px-4 py-3">
                 <Link
                   href={`/experiments/${experimentId}/runs/${run.id}`}
-                  className="font-medium text-white transition hover:text-blue-300"
+                  className="font-medium text-card-foreground transition hover:text-primary"
                 >
                   {run.name}
                 </Link>
               </td>
-              <td className="px-4 py-3 text-gray-300">{run.status}</td>
-              <td className="px-4 py-3 text-gray-400">
+              <td className="px-4 py-3 text-muted-foreground">{run.status}</td>
+              <td className="px-4 py-3 text-muted-foreground">
                 {new Date(run.createdAt).toLocaleString()}
               </td>
               <td className="px-4 py-3">
                 <div className="flex justify-end gap-2">
                   <Link
                     href={`/experiments/${experimentId}/runs/${run.id}`}
-                    className="rounded-md border border-gray-700 px-2.5 py-1 text-xs text-gray-300 transition hover:bg-gray-800"
+                    className="rounded-md border border-input px-2.5 py-1 text-xs text-muted-foreground transition hover:bg-accent hover:text-accent-foreground"
                   >
                     Open
                   </Link>
@@ -65,7 +65,7 @@ export function RunList({
                       type="button"
                       onClick={() => onDelete(run.id)}
                       disabled={deletingId === run.id}
-                      className="rounded-md border border-red-500/50 px-2.5 py-1 text-xs text-red-300 transition hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-70"
+                      className="rounded-md border border-destructive/50 px-2.5 py-1 text-xs text-destructive-foreground transition hover:bg-destructive/10 disabled:cursor-not-allowed disabled:opacity-70"
                     >
                       {deletingId === run.id ? "Deleting..." : "Delete"}
                     </button>

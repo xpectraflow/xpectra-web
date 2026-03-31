@@ -26,23 +26,23 @@ export function Sidebar() {
   const { data: session } = useSession();
 
   return (
-    <div className="flex h-screen w-64 flex-col border-r border-gray-800 bg-gray-950">
+    <div className="flex h-screen w-64 flex-col border-r border-sidebar-border bg-sidebar-background">
       {/* Top Section */}
-      <div className="border-b border-gray-800 p-4">
+      <div className="border-b border-sidebar-border p-4">
         <div className="mb-4">
-          <div className="text-xs font-medium text-gray-500 uppercase tracking-wider">
+          <div className="text-xs font-medium uppercase tracking-wider text-sidebar-foreground">
             Workspace
           </div>
-          <div className="mt-1 text-sm font-medium text-white">
+          <div className="mt-1 text-sm font-medium text-sidebar-accent-foreground">
             Personal Workspace
           </div>
         </div>
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-sidebar-foreground" />
           <input
             type="text"
             placeholder="Search..."
-            className="w-full rounded-lg border border-gray-800 bg-gray-900 py-2 pl-10 pr-3 text-sm text-white placeholder-gray-500 focus:border-gray-700 focus:outline-none"
+            className="w-full rounded-lg border border-input bg-card py-2 pl-10 pr-3 text-sm text-card-foreground placeholder:text-muted-foreground focus:outline-none"
           />
         </div>
       </div>
@@ -51,7 +51,7 @@ export function Sidebar() {
       <div className="flex-1 overflow-y-auto p-4">
         <div className="space-y-1">
           <div className="mb-4">
-            <div className="mb-2 px-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <div className="mb-2 px-3 text-xs font-medium uppercase tracking-wider text-sidebar-foreground">
               Home
             </div>
             <SidebarItem href="/" icon={House} label="Dashboard" />
@@ -60,7 +60,7 @@ export function Sidebar() {
           </div>
 
           <div className="mb-4">
-            <div className="mb-2 px-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <div className="mb-2 px-3 text-xs font-medium uppercase tracking-wider text-sidebar-foreground">
               Datasets
             </div>
             <SidebarItem
@@ -83,7 +83,7 @@ export function Sidebar() {
           </div>
 
           <div className="mb-4">
-            <div className="mb-2 px-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <div className="mb-2 px-3 text-xs font-medium uppercase tracking-wider text-sidebar-foreground">
               Workflows
             </div>
             <SidebarItem href="/clusters" icon={Server} label="Clusters" />
@@ -99,18 +99,18 @@ export function Sidebar() {
       </div>
 
       {/* Bottom Section */}
-      <div className="border-t border-gray-800 p-4">
-        <div className="mb-4 rounded-lg border border-gray-800 bg-gray-900/70 p-3">
-          <p className="truncate text-sm font-medium text-white">
+      <div className="border-t border-sidebar-border p-4">
+        <div className="mb-4 rounded-lg border border-sidebar-border bg-sidebar-accent p-3">
+          <p className="truncate text-sm font-medium text-sidebar-accent-foreground">
             {session?.user?.name ?? "Signed in user"}
           </p>
-          <p className="truncate text-xs text-gray-400">
+          <p className="truncate text-xs text-sidebar-foreground">
             {session?.user?.email ?? "Local account"}
           </p>
           <button
             type="button"
             onClick={() => signOut({ callbackUrl: "/login" })}
-            className="mt-3 inline-flex items-center gap-2 rounded-md border border-gray-700 px-2.5 py-1.5 text-xs font-medium text-gray-300 transition hover:bg-gray-800 hover:text-white"
+            className="mt-3 inline-flex items-center gap-2 rounded-md border border-input px-2.5 py-1.5 text-xs font-medium text-sidebar-foreground transition hover:bg-accent hover:text-accent-foreground"
           >
             <LogOut className="h-3.5 w-3.5" />
             Sign out

@@ -111,16 +111,16 @@ export default function RunDetailsPage() {
       action={
         <Link
           href={`/experiments/${params.experimentId}`}
-          className="rounded-lg border border-gray-700 px-3 py-2 text-sm text-gray-200 transition hover:bg-gray-800"
+          className="rounded-lg border border-input px-3 py-2 text-sm text-muted-foreground transition hover:bg-accent hover:text-accent-foreground"
         >
           Back to experiment
         </Link>
       }
     >
-      {runQuery.isLoading && <p className="text-sm text-gray-400">Loading run...</p>}
+      {runQuery.isLoading && <p className="text-sm text-muted-foreground">Loading run...</p>}
 
       {runQuery.error && (
-        <p className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300">
+        <p className="rounded-lg border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive-foreground">
           Failed to load run: {runQuery.error.message}
         </p>
       )}
@@ -170,11 +170,11 @@ export default function RunDetailsPage() {
             />
 
             {channelsQuery.isLoading && (
-              <p className="text-sm text-gray-400">Loading channels...</p>
+              <p className="text-sm text-muted-foreground">Loading channels...</p>
             )}
 
             {channelsQuery.error && (
-              <p className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300">
+              <p className="rounded-lg border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive-foreground">
                 Failed to load channels: {channelsQuery.error.message}
               </p>
             )}
@@ -219,11 +219,11 @@ export default function RunDetailsPage() {
             )}
 
             {telemetryQuery.isLoading && (
-              <p className="text-sm text-gray-400">Loading telemetry...</p>
+              <p className="text-sm text-muted-foreground">Loading telemetry...</p>
             )}
 
             {telemetryQuery.error && (
-              <p className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300">
+              <p className="rounded-lg border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive-foreground">
                 Failed to load telemetry: {telemetryQuery.error.message}
               </p>
             )}

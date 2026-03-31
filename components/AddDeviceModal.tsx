@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, FormEvent, useEffect } from 'react';
 import { X } from 'lucide-react';
@@ -153,12 +153,12 @@ export function AddDeviceModal({ isOpen, onClose }: AddDeviceModalProps) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-lg border border-gray-800 bg-gray-900 shadow-xl">
-        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-800 bg-gray-900 px-6 py-4">
-          <h2 className="text-xl font-semibold text-white">Add Device</h2>
+      <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-lg border border-border bg-card shadow-xl">
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-card px-6 py-4">
+          <h2 className="text-xl font-semibold text-foreground">Add Device</h2>
           <button
             onClick={onClose}
-            className="rounded-lg p-1 text-gray-400 transition-colors hover:bg-gray-800 hover:text-white"
+            className="rounded-lg p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
           >
             <X className="h-5 w-5" />
           </button>
@@ -169,16 +169,16 @@ export function AddDeviceModal({ isOpen, onClose }: AddDeviceModalProps) {
             {/* 1. Device Identity */}
             <div className="space-y-4">
               <div>
-                <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-400">
+                <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
                   1. Device Identity
                 </h3>
-                <div className="space-y-4 rounded-lg border border-gray-800 bg-gray-950/50 p-4">
+                <div className="space-y-4 rounded-lg border border-border bg-background/50 p-4">
                   <div>
                     <label
                       htmlFor="name"
-                      className="mb-1 block text-sm font-medium text-gray-300"
+                      className="mb-1 block text-sm font-medium text-muted-foreground"
                     >
-                      Device Name <span className="text-red-400">*</span>
+                      Device Name <span className="text-destructive">*</span>
                     </label>
                     <input
                       id="name"
@@ -188,7 +188,7 @@ export function AddDeviceModal({ isOpen, onClose }: AddDeviceModalProps) {
                       onChange={(e) =>
                         setFormData({ ...formData, name: e.target.value })
                       }
-                      className="w-full rounded-lg border border-gray-800 bg-gray-950 px-3 py-2 text-sm text-white placeholder-gray-500 focus:border-gray-700 focus:outline-none"
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-input focus:outline-none"
                       placeholder="e.g., Mumbai AQI Station 01"
                     />
                   </div>
@@ -196,9 +196,9 @@ export function AddDeviceModal({ isOpen, onClose }: AddDeviceModalProps) {
                   <div>
                     <label
                       htmlFor="deviceId"
-                      className="mb-1 block text-sm font-medium text-gray-300"
+                      className="mb-1 block text-sm font-medium text-muted-foreground"
                     >
-                      Device ID <span className="text-red-400">*</span>
+                      Device ID <span className="text-destructive">*</span>
                     </label>
                     <input
                       id="deviceId"
@@ -208,10 +208,10 @@ export function AddDeviceModal({ isOpen, onClose }: AddDeviceModalProps) {
                       onChange={(e) =>
                         setFormData({ ...formData, deviceId: e.target.value })
                       }
-                      className="w-full rounded-lg border border-gray-800 bg-gray-950 px-3 py-2 text-sm text-white placeholder-gray-500 focus:border-gray-700 focus:outline-none"
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-input focus:outline-none"
                       placeholder="e.g., mumbai-aqi-station-01"
                     />
-                    <p className="mt-1 text-xs text-gray-500">
+                    <p className="mt-1 text-xs text-muted-foreground">
                       Stable identifier used in pipelines
                     </p>
                   </div>
@@ -219,9 +219,9 @@ export function AddDeviceModal({ isOpen, onClose }: AddDeviceModalProps) {
                   <div>
                     <label
                       htmlFor="type"
-                      className="mb-1 block text-sm font-medium text-gray-300"
+                      className="mb-1 block text-sm font-medium text-muted-foreground"
                     >
-                      Device Type <span className="text-red-400">*</span>
+                      Device Type <span className="text-destructive">*</span>
                     </label>
                     <select
                       id="type"
@@ -233,7 +233,7 @@ export function AddDeviceModal({ isOpen, onClose }: AddDeviceModalProps) {
                           type: e.target.value as Device['type'],
                         })
                       }
-                      className="w-full rounded-lg border border-gray-800 bg-gray-950 px-3 py-2 text-sm text-white focus:border-gray-700 focus:outline-none"
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-input focus:outline-none"
                     >
                       <option value="Satellite-derived">Satellite-derived</option>
                       <option value="Ground Sensor">Ground Sensor</option>
@@ -249,22 +249,22 @@ export function AddDeviceModal({ isOpen, onClose }: AddDeviceModalProps) {
             {/* 2. Sensor Outputs */}
             <div className="space-y-4">
               <div>
-                <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-400">
+                <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
                   2. Sensor Outputs
                 </h3>
-                <div className="space-y-4 rounded-lg border border-gray-800 bg-gray-950/50 p-4">
+                <div className="space-y-4 rounded-lg border border-border bg-background/50 p-4">
                   <div>
-                    <label className="mb-2 block text-sm font-medium text-gray-300">
+                    <label className="mb-2 block text-sm font-medium text-muted-foreground">
                       Signal Category
                     </label>
-                    <p className="mb-2 text-xs text-gray-500">
+                    <p className="mb-2 text-xs text-muted-foreground">
                       Describes the type of data emitted by the device.
                     </p>
                     <div className="grid grid-cols-2 gap-2">
                       {SIGNAL_CATEGORIES.map((category) => (
                         <label
                           key={category}
-                          className="flex cursor-pointer items-center gap-2 rounded-lg border border-gray-800 bg-gray-950 px-3 py-2 text-sm text-gray-300 transition-colors hover:bg-gray-900 hover:border-gray-700"
+                          className="flex cursor-pointer items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-card hover:border-input"
                         >
                           <input
                             type="checkbox"
@@ -272,7 +272,7 @@ export function AddDeviceModal({ isOpen, onClose }: AddDeviceModalProps) {
                             onChange={() =>
                               handleMultiSelectToggle('signalCategory', category)
                             }
-                            className="h-4 w-4 rounded border-gray-700 bg-gray-900 text-blue-600 focus:ring-blue-500"
+                            className="h-4 w-4 rounded border-input bg-card text-primary focus:ring-ring"
                           />
                           <span>{category}</span>
                         </label>
@@ -281,17 +281,17 @@ export function AddDeviceModal({ isOpen, onClose }: AddDeviceModalProps) {
                   </div>
 
                   <div>
-                    <label className="mb-2 block text-sm font-medium text-gray-300">
+                    <label className="mb-2 block text-sm font-medium text-muted-foreground">
                       Signals Emitted
                     </label>
-                    <p className="mb-2 text-xs text-gray-500">
+                    <p className="mb-2 text-xs text-muted-foreground">
                       Select the data primitives produced by this device.
                     </p>
                     <div className="grid grid-cols-2 gap-2">
                       {SIGNALS_EMITTED.map((signal) => (
                         <label
                           key={signal}
-                          className="flex cursor-pointer items-center gap-2 rounded-lg border border-gray-800 bg-gray-950 px-3 py-2 text-sm text-gray-300 transition-colors hover:bg-gray-900 hover:border-gray-700"
+                          className="flex cursor-pointer items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-card hover:border-input"
                         >
                           <input
                             type="checkbox"
@@ -299,7 +299,7 @@ export function AddDeviceModal({ isOpen, onClose }: AddDeviceModalProps) {
                             onChange={() =>
                               handleMultiSelectToggle('signalsEmitted', signal)
                             }
-                            className="h-4 w-4 rounded border-gray-700 bg-gray-900 text-blue-600 focus:ring-blue-500"
+                            className="h-4 w-4 rounded border-input bg-card text-primary focus:ring-ring"
                           />
                           <span>{signal}</span>
                         </label>
@@ -310,7 +310,7 @@ export function AddDeviceModal({ isOpen, onClose }: AddDeviceModalProps) {
                   <div>
                     <label
                       htmlFor="signalDimensionality"
-                      className="mb-1 block text-sm font-medium text-gray-300"
+                      className="mb-1 block text-sm font-medium text-muted-foreground"
                     >
                       Signal Dimensionality
                     </label>
@@ -323,7 +323,7 @@ export function AddDeviceModal({ isOpen, onClose }: AddDeviceModalProps) {
                           signalDimensionality: e.target.value as Device['signalDimensionality'],
                         })
                       }
-                      className="w-full rounded-lg border border-gray-800 bg-gray-950 px-3 py-2 text-sm text-white focus:border-gray-700 focus:outline-none"
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-input focus:outline-none"
                     >
                       <option value="Single-channel">Single-channel</option>
                       <option value="Multi-channel">Multi-channel</option>
@@ -334,7 +334,7 @@ export function AddDeviceModal({ isOpen, onClose }: AddDeviceModalProps) {
                   <div>
                     <label
                       htmlFor="primaryTimeAxis"
-                      className="mb-1 block text-sm font-medium text-gray-300"
+                      className="mb-1 block text-sm font-medium text-muted-foreground"
                     >
                       Primary Time Axis
                     </label>
@@ -347,7 +347,7 @@ export function AddDeviceModal({ isOpen, onClose }: AddDeviceModalProps) {
                           primaryTimeAxis: e.target.value as Device['primaryTimeAxis'],
                         })
                       }
-                      className="w-full rounded-lg border border-gray-800 bg-gray-950 px-3 py-2 text-sm text-white focus:border-gray-700 focus:outline-none"
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-input focus:outline-none"
                     >
                       <option value="Event time">Event time</option>
                       <option value="Ingest time">Ingest time</option>
@@ -366,10 +366,10 @@ export function AddDeviceModal({ isOpen, onClose }: AddDeviceModalProps) {
                             !formData.showValueCharacteristics,
                         })
                       }
-                      className="flex w-full items-center justify-between text-sm font-medium text-gray-300 hover:text-white"
+                      className="flex w-full items-center justify-between text-sm font-medium text-muted-foreground hover:text-accent-foreground"
                     >
                       <span>Value Characteristics (Optional)</span>
-                      <span className="text-gray-500">
+                      <span className="text-muted-foreground">
                         {formData.showValueCharacteristics ? '−' : '+'}
                       </span>
                     </button>
@@ -379,7 +379,7 @@ export function AddDeviceModal({ isOpen, onClose }: AddDeviceModalProps) {
                           {VALUE_CHARACTERISTICS.map((characteristic) => (
                             <label
                               key={characteristic}
-                              className="flex cursor-pointer items-center gap-2 rounded-lg border border-gray-800 bg-gray-950 px-3 py-2 text-sm text-gray-300 transition-colors hover:bg-gray-900 hover:border-gray-700"
+                              className="flex cursor-pointer items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-card hover:border-input"
                             >
                               <input
                                 type="checkbox"
@@ -392,7 +392,7 @@ export function AddDeviceModal({ isOpen, onClose }: AddDeviceModalProps) {
                                     characteristic
                                   )
                                 }
-                                className="h-4 w-4 rounded border-gray-700 bg-gray-900 text-blue-600 focus:ring-blue-500"
+                                className="h-4 w-4 rounded border-input bg-card text-primary focus:ring-ring"
                               />
                               <span>{characteristic}</span>
                             </label>
@@ -408,14 +408,14 @@ export function AddDeviceModal({ isOpen, onClose }: AddDeviceModalProps) {
             {/* 3. Location & Coverage */}
             <div className="space-y-4">
               <div>
-                <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-400">
+                <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
                   3. Location & Coverage
                 </h3>
-                <div className="space-y-4 rounded-lg border border-gray-800 bg-gray-950/50 p-4">
+                <div className="space-y-4 rounded-lg border border-border bg-background/50 p-4">
                   <div>
                     <label
                       htmlFor="locationType"
-                      className="mb-1 block text-sm font-medium text-gray-300"
+                      className="mb-1 block text-sm font-medium text-muted-foreground"
                     >
                       Location Type
                     </label>
@@ -428,7 +428,7 @@ export function AddDeviceModal({ isOpen, onClose }: AddDeviceModalProps) {
                           locationType: e.target.value as Device['locationType'],
                         })
                       }
-                      className="w-full rounded-lg border border-gray-800 bg-gray-950 px-3 py-2 text-sm text-white focus:border-gray-700 focus:outline-none"
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-input focus:outline-none"
                     >
                       <option value="Fixed">Fixed</option>
                       <option value="Mobile">Mobile</option>
@@ -440,7 +440,7 @@ export function AddDeviceModal({ isOpen, onClose }: AddDeviceModalProps) {
                     <div>
                       <label
                         htmlFor="latitude"
-                        className="mb-1 block text-sm font-medium text-gray-300"
+                        className="mb-1 block text-sm font-medium text-muted-foreground"
                       >
                         Latitude
                       </label>
@@ -452,14 +452,14 @@ export function AddDeviceModal({ isOpen, onClose }: AddDeviceModalProps) {
                         onChange={(e) =>
                           setFormData({ ...formData, latitude: e.target.value })
                         }
-                        className="w-full rounded-lg border border-gray-800 bg-gray-950 px-3 py-2 text-sm text-white placeholder-gray-500 focus:border-gray-700 focus:outline-none"
+                        className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-input focus:outline-none"
                         placeholder="e.g., 19.0760"
                       />
                     </div>
                     <div>
                       <label
                         htmlFor="longitude"
-                        className="mb-1 block text-sm font-medium text-gray-300"
+                        className="mb-1 block text-sm font-medium text-muted-foreground"
                       >
                         Longitude
                       </label>
@@ -471,7 +471,7 @@ export function AddDeviceModal({ isOpen, onClose }: AddDeviceModalProps) {
                         onChange={(e) =>
                           setFormData({ ...formData, longitude: e.target.value })
                         }
-                        className="w-full rounded-lg border border-gray-800 bg-gray-950 px-3 py-2 text-sm text-white placeholder-gray-500 focus:border-gray-700 focus:outline-none"
+                        className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-input focus:outline-none"
                         placeholder="e.g., 72.8777"
                       />
                     </div>
@@ -480,7 +480,7 @@ export function AddDeviceModal({ isOpen, onClose }: AddDeviceModalProps) {
                   <div>
                     <label
                       htmlFor="region"
-                      className="mb-1 block text-sm font-medium text-gray-300"
+                      className="mb-1 block text-sm font-medium text-muted-foreground"
                     >
                       Region / Coverage Area
                     </label>
@@ -491,7 +491,7 @@ export function AddDeviceModal({ isOpen, onClose }: AddDeviceModalProps) {
                       onChange={(e) =>
                         setFormData({ ...formData, region: e.target.value })
                       }
-                      className="w-full rounded-lg border border-gray-800 bg-gray-950 px-3 py-2 text-sm text-white placeholder-gray-500 focus:border-gray-700 focus:outline-none"
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-input focus:outline-none"
                       placeholder="e.g., Mumbai Metropolitan Region"
                     />
                   </div>
@@ -502,14 +502,14 @@ export function AddDeviceModal({ isOpen, onClose }: AddDeviceModalProps) {
             {/* 4. Data Emission Profile */}
             <div className="space-y-4">
               <div>
-                <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-400">
+                <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
                   4. Data Emission Profile
                 </h3>
-                <div className="space-y-4 rounded-lg border border-gray-800 bg-gray-950/50 p-4">
+                <div className="space-y-4 rounded-lg border border-border bg-background/50 p-4">
                   <div>
                     <label
                       htmlFor="dataFrequency"
-                      className="mb-1 block text-sm font-medium text-gray-300"
+                      className="mb-1 block text-sm font-medium text-muted-foreground"
                     >
                       Data Frequency
                     </label>
@@ -522,7 +522,7 @@ export function AddDeviceModal({ isOpen, onClose }: AddDeviceModalProps) {
                           dataFrequency: e.target.value as Device['dataFrequency'],
                         })
                       }
-                      className="w-full rounded-lg border border-gray-800 bg-gray-950 px-3 py-2 text-sm text-white focus:border-gray-700 focus:outline-none"
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-input focus:outline-none"
                     >
                       <option value="Real-time">Real-time</option>
                       <option value="Every 1 min">Every 1 min</option>
@@ -534,7 +534,7 @@ export function AddDeviceModal({ isOpen, onClose }: AddDeviceModalProps) {
                   <div>
                     <label
                       htmlFor="dataFormat"
-                      className="mb-1 block text-sm font-medium text-gray-300"
+                      className="mb-1 block text-sm font-medium text-muted-foreground"
                     >
                       Data Format
                     </label>
@@ -547,7 +547,7 @@ export function AddDeviceModal({ isOpen, onClose }: AddDeviceModalProps) {
                           dataFormat: e.target.value as Device['dataFormat'],
                         })
                       }
-                      className="w-full rounded-lg border border-gray-800 bg-gray-950 px-3 py-2 text-sm text-white focus:border-gray-700 focus:outline-none"
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-input focus:outline-none"
                     >
                       <option value="JSON">JSON</option>
                       <option value="CSV">CSV</option>
@@ -558,7 +558,7 @@ export function AddDeviceModal({ isOpen, onClose }: AddDeviceModalProps) {
                   <div>
                     <label
                       htmlFor="expectedLatency"
-                      className="mb-1 block text-sm font-medium text-gray-300"
+                      className="mb-1 block text-sm font-medium text-muted-foreground"
                     >
                       Expected Latency
                     </label>
@@ -571,7 +571,7 @@ export function AddDeviceModal({ isOpen, onClose }: AddDeviceModalProps) {
                           expectedLatency: e.target.value as Device['expectedLatency'],
                         })
                       }
-                      className="w-full rounded-lg border border-gray-800 bg-gray-950 px-3 py-2 text-sm text-white focus:border-gray-700 focus:outline-none"
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-input focus:outline-none"
                     >
                       <option value="Near real-time">Near real-time</option>
                       <option value="5–15 min">5–15 min</option>
@@ -585,14 +585,14 @@ export function AddDeviceModal({ isOpen, onClose }: AddDeviceModalProps) {
             {/* 5. Metadata */}
             <div className="space-y-4">
               <div>
-                <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-400">
+                <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
                   5. Metadata
                 </h3>
-                <div className="space-y-4 rounded-lg border border-gray-800 bg-gray-950/50 p-4">
+                <div className="space-y-4 rounded-lg border border-border bg-background/50 p-4">
                   <div>
                     <label
                       htmlFor="owner"
-                      className="mb-1 block text-sm font-medium text-gray-300"
+                      className="mb-1 block text-sm font-medium text-muted-foreground"
                     >
                       Owner / Team
                     </label>
@@ -603,7 +603,7 @@ export function AddDeviceModal({ isOpen, onClose }: AddDeviceModalProps) {
                       onChange={(e) =>
                         setFormData({ ...formData, owner: e.target.value })
                       }
-                      className="w-full rounded-lg border border-gray-800 bg-gray-950 px-3 py-2 text-sm text-white placeholder-gray-500 focus:border-gray-700 focus:outline-none"
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-input focus:outline-none"
                       placeholder="e.g., Climate Analytics Team"
                     />
                   </div>
@@ -611,7 +611,7 @@ export function AddDeviceModal({ isOpen, onClose }: AddDeviceModalProps) {
                   <div>
                     <label
                       htmlFor="source"
-                      className="mb-1 block text-sm font-medium text-gray-300"
+                      className="mb-1 block text-sm font-medium text-muted-foreground"
                     >
                       Source
                     </label>
@@ -622,7 +622,7 @@ export function AddDeviceModal({ isOpen, onClose }: AddDeviceModalProps) {
                       onChange={(e) =>
                         setFormData({ ...formData, source: e.target.value })
                       }
-                      className="w-full rounded-lg border border-gray-800 bg-gray-950 px-3 py-2 text-sm text-white placeholder-gray-500 focus:border-gray-700 focus:outline-none"
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-input focus:outline-none"
                       placeholder="e.g., IMD, ISRO, CPCB, Internal"
                     />
                   </div>
@@ -630,7 +630,7 @@ export function AddDeviceModal({ isOpen, onClose }: AddDeviceModalProps) {
                   <div>
                     <label
                       htmlFor="notes"
-                      className="mb-1 block text-sm font-medium text-gray-300"
+                      className="mb-1 block text-sm font-medium text-muted-foreground"
                     >
                       Notes
                     </label>
@@ -641,7 +641,7 @@ export function AddDeviceModal({ isOpen, onClose }: AddDeviceModalProps) {
                       onChange={(e) =>
                         setFormData({ ...formData, notes: e.target.value })
                       }
-                      className="w-full rounded-lg border border-gray-800 bg-gray-950 px-3 py-2 text-sm text-white placeholder-gray-500 focus:border-gray-700 focus:outline-none"
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-input focus:outline-none"
                       placeholder="Additional notes or context..."
                     />
                   </div>
@@ -651,17 +651,17 @@ export function AddDeviceModal({ isOpen, onClose }: AddDeviceModalProps) {
           </div>
 
           {/* Form Actions */}
-          <div className="mt-6 flex gap-3 border-t border-gray-800 pt-6">
+          <div className="mt-6 flex gap-3 border-t border-border pt-6">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 rounded-lg border border-gray-800 bg-gray-900 px-4 py-2 text-sm font-medium text-gray-300 transition-colors hover:bg-gray-800"
+              className="flex-1 rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="flex-1 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
+              className="flex-1 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-foreground transition-colors hover:opacity-90"
             >
               Add Device
             </button>
@@ -671,3 +671,4 @@ export function AddDeviceModal({ isOpen, onClose }: AddDeviceModalProps) {
     </div>
   );
 }
+
