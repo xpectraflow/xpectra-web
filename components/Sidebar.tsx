@@ -14,6 +14,7 @@ import {
   MessageCircle,
   Search,
   LogOut,
+  FlaskConical,
 } from 'lucide-react';
 import { SidebarItem } from './SidebarItem';
 import { useDevices } from '@/contexts/DeviceContext';
@@ -86,6 +87,11 @@ export function Sidebar() {
             <SidebarItem href="/clusters" icon={Server} label="Clusters" />
             <SidebarItem href="/jobs" icon={Briefcase} label="Jobs" />
             <SidebarItem href="/automations" icon={Zap} label="Automations" />
+            <SidebarItem
+              href="/experiments"
+              icon={FlaskConical}
+              label="Experiments"
+            />
           </div>
         </div>
       </div>

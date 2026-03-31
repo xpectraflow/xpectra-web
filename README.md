@@ -48,3 +48,10 @@ Open [http://localhost:3000](http://localhost:3000), then create an account at `
 ### tRPC route
 
 - `GET/POST /api/trpc/[trpc]`
+
+### Experiments (Phase 3)
+
+- `/experiments`
+- `/experiments/create`
+- `/experiments/[experimentId]`
+- `/experiments/[experimentId]/edit`
