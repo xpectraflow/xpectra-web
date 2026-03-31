@@ -2,9 +2,7 @@ import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 import * as schema from "@/server/db/schema";
 
-const DATABASE_URL =
-  process.env.DATABASE_URL ??
-  "postgresql://postgres:postgres@127.0.0.1:5432/postgres?schema=public";
+const DATABASE_URL = process.env.DATABASE_URL as string;
 
 const globalForDb = globalThis as unknown as {
   pool: Pool | undefined;

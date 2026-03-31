@@ -7,6 +7,11 @@ import {
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 
+const timestampColumns = {
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+};
+
 export const users = pgTable(
   "users",
   {
@@ -14,9 +19,7 @@ export const users = pgTable(
     email: text("email").notNull(),
     name: text("name").notNull(),
     passwordHash: text("password_hash").notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
+    ...timestampColumns,
   },
   (table) => ({
     usersEmailKey: uniqueIndex("users_email_key").on(table.email),
@@ -31,12 +34,7 @@ export const experiments = pgTable("experiments", {
   name: text("name").notNull(),
   description: text("description"),
   status: text("status").notNull().default("draft"),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
+  ...timestampColumns,
 });
 
 export const runs = pgTable("runs", {
@@ -48,9 +46,7 @@ export const runs = pgTable("runs", {
   status: text("status").notNull().default("queued"),
   startedAt: timestamp("started_at", { withTimezone: true }),
   endedAt: timestamp("ended_at", { withTimezone: true }),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
+  ...timestampColumns,
 });
 
 export const channels = pgTable("channels", {
@@ -61,9 +57,7 @@ export const channels = pgTable("channels", {
   name: text("name").notNull(),
   unit: text("unit"),
   dataType: text("data_type").notNull().default("float"),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
+  ...timestampColumns,
 });
 
 export const usersRelations = relations(users, ({ many }) => ({
