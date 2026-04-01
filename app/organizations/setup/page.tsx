@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { PageLayout } from "@/components/PageLayout";
 import { trpc } from "@/lib/trpc";
@@ -14,6 +14,7 @@ const ORG_TYPES = [
 
 export default function OrganizationSetupPage() {
   const router = useRouter();
+  const organizationsQuery = trpc.organizations.list.useQuery();
   const [name, setName] = useState("");
   const [type, setType] = useState<(typeof ORG_TYPES)[number]["id"]>(
     ORG_TYPES[0].id,
@@ -27,6 +28,15 @@ export default function OrganizationSetupPage() {
       router.refresh();
     },
   });
+
+  useEffect(() => {
+    if (
+      organizationsQuery.isSuccess &&
+      organizationsQuery.data.length > 0
+    ) {
+      router.replace("/");
+    }
+  }, [organizationsQuery.data, organizationsQuery.isSuccess, router]);
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

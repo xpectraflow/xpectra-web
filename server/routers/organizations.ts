@@ -1,4 +1,5 @@
 import { randomUUID } from "crypto";
+import { TRPCError } from "@trpc/server";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { organizations, users } from "@/server/db/schema";
@@ -47,6 +48,18 @@ export const organizationsRouter = createTRPCRouter({
         db: ctx.db,
         ...userInfoFromSession(ctx.session),
       });
+
+      const existingUser = await ctx.db.query.users.findFirst({
+        where: (row, { eq }) => eq(row.id, userId),
+        columns: { primaryOrganizationId: true },
+      });
+
+      if (existingUser?.primaryOrganizationId) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You are already attached to an organization.",
+        });
+      }
 
       const organizationId = randomUUID();
 

@@ -26,16 +26,18 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
 function DashboardContent({ children }: DashboardLayoutProps) {
   const router = useRouter();
-  const { data: orgs, isSuccess, isLoading } = trpc.organizations.list.useQuery();
+  const { data: orgs, isSuccess } = trpc.organizations.list.useQuery();
   const pathname = usePathname();
   const isSetupPage = pathname === "/organizations/setup";
   useEffect(() => {
     if (isSuccess && orgs.length === 0 && !isSetupPage) {
       router.replace("/organizations/setup");
     }
-  }, [router, orgs, isSuccess]);
+  }, [router, orgs, isSuccess, isSetupPage]);
 
-  if (isLoading || (isSuccess && orgs.length === 0 && !isSetupPage)) {
+
+
+  if (isSuccess && orgs.length === 0 && !isSetupPage) {
     return null;
   }
 
