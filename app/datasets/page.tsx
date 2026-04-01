@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState } from 'react';
 import { PageLayout } from '@/components/PageLayout';
@@ -88,7 +88,7 @@ export default function DatasetsPage() {
           activeJobs: getActiveJobsCount(device.name),
         }));
 
-  const handleRowClick = (row: any) => {
+  const handleRowClick = (row: TableRow) => {
     if (!row.isStatic && row.device) {
       setSelectedDevice(row.device);
       setIsDrawerOpen(true);

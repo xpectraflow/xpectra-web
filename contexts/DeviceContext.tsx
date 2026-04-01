@@ -44,42 +44,83 @@ const DeviceContext = createContext<DeviceContextType | undefined>(undefined);
 
 const STORAGE_KEY = 'devices';
 
-export function DeviceProvider({ children }: { children: ReactNode }) {
-  const [devices, setDevices] = useState<Device[]>([]);
+type StoredDevice = Partial<Device> & {
+  id?: unknown;
+  name?: unknown;
+  deviceId?: unknown;
+  type?: unknown;
+  createdAt?: unknown;
+};
 
-  // Load from localStorage on mount
-  useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        // Migrate old devices to include all required fields
-        const migrated = parsed.map((device: any) => ({
-          ...device,
-          status: device.status || 'Provisioned',
-          source: device.source || 'Internal',
-          // New signal model fields (default if not present)
-          signalCategory: device.signalCategory || [],
-          signalsEmitted: device.signalsEmitted || [],
-          signalDimensionality:
-            device.signalDimensionality || 'Single-channel',
-          primaryTimeAxis: device.primaryTimeAxis || 'Event time',
-          valueCharacteristics: device.valueCharacteristics || [],
-          // Legacy fields for backward compatibility
-          measuredSignals: device.measuredSignals || [],
-          sensorCategory: device.sensorCategory || 'Environmental',
-          unitSystem: device.unitSystem || 'SI',
-          locationType: device.locationType || 'Fixed',
-          dataFrequency: device.dataFrequency || 'Every 5 min',
-          dataFormat: device.dataFormat || 'JSON',
-          expectedLatency: device.expectedLatency || 'Near real-time',
-        }));
-        setDevices(migrated);
-      } catch (error) {
-        console.error('Failed to parse stored devices:', error);
-      }
+function isStoredDevice(value: unknown): value is StoredDevice {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+
+  const candidate = value as StoredDevice;
+  return (
+    typeof candidate.id === 'string' &&
+    typeof candidate.name === 'string' &&
+    typeof candidate.deviceId === 'string' &&
+    typeof candidate.type === 'string' &&
+    typeof candidate.createdAt === 'string'
+  );
+}
+
+function migrateStoredDevice(device: StoredDevice): Device {
+  return {
+    ...device,
+    id: device.id as string,
+    name: device.name as string,
+    deviceId: device.deviceId as string,
+    type: device.type as Device['type'],
+    createdAt: device.createdAt as string,
+    status: (device.status as Device['status']) || 'Provisioned',
+    source: device.source || 'Internal',
+    signalCategory: device.signalCategory || [],
+    signalsEmitted: device.signalsEmitted || [],
+    signalDimensionality:
+      (device.signalDimensionality as Device['signalDimensionality']) ||
+      'Single-channel',
+    primaryTimeAxis:
+      (device.primaryTimeAxis as Device['primaryTimeAxis']) || 'Event time',
+    valueCharacteristics: device.valueCharacteristics || [],
+    measuredSignals: device.measuredSignals || [],
+    sensorCategory:
+      (device.sensorCategory as Device['sensorCategory']) || 'Environmental',
+    unitSystem: (device.unitSystem as Device['unitSystem']) || 'SI',
+    locationType: (device.locationType as Device['locationType']) || 'Fixed',
+    dataFrequency:
+      (device.dataFrequency as Device['dataFrequency']) || 'Every 5 min',
+    dataFormat: (device.dataFormat as Device['dataFormat']) || 'JSON',
+    expectedLatency:
+      (device.expectedLatency as Device['expectedLatency']) || 'Near real-time',
+  };
+}
+
+export function DeviceProvider({ children }: { children: ReactNode }) {
+  const [devices, setDevices] = useState<Device[]>(() => {
+    if (typeof window === 'undefined') {
+      return [];
     }
-  }, []);
+
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (!stored) {
+      return [];
+    }
+
+    try {
+      const parsed: unknown = JSON.parse(stored);
+      if (!Array.isArray(parsed)) {
+        return [];
+      }
+
+      return parsed.filter(isStoredDevice).map(migrateStoredDevice);
+    } catch (error) {
+      console.error('Failed to parse stored devices:', error);
+      return [];
+    }
+  });
 
   // Save to localStorage whenever devices change
   useEffect(() => {

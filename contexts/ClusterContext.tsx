@@ -52,24 +52,45 @@ const defaultClusters: Cluster[] = [
 ];
 
 export function ClusterProvider({ children }: { children: ReactNode }) {
-  const [clusters, setClusters] = useState<Cluster[]>(defaultClusters);
-
-  // Load from localStorage on mount
-  useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        // Merge user clusters with defaults
-        const allClusters = [...defaultClusters, ...parsed];
-        setClusters(allClusters);
-      } catch (error) {
-        console.error('Failed to parse stored clusters:', error);
-        // If parsing fails, use defaults only
-        setClusters(defaultClusters);
-      }
+  const [clusters, setClusters] = useState<Cluster[]>(() => {
+    if (typeof window === 'undefined') {
+      return defaultClusters;
     }
-  }, []);
+
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (!stored) {
+      return defaultClusters;
+    }
+
+    try {
+      const parsed: unknown = JSON.parse(stored);
+      if (!Array.isArray(parsed)) {
+        return defaultClusters;
+      }
+
+      const userClusters = parsed.filter((cluster): cluster is Cluster => {
+        if (!cluster || typeof cluster !== 'object') {
+          return false;
+        }
+        const candidate = cluster as Partial<Cluster>;
+        return (
+          typeof candidate.id === 'string' &&
+          typeof candidate.name === 'string' &&
+          typeof candidate.provider === 'string' &&
+          typeof candidate.region === 'string' &&
+          typeof candidate.computeType === 'string' &&
+          typeof candidate.workload === 'string' &&
+          typeof candidate.status === 'string' &&
+          typeof candidate.source === 'string'
+        );
+      });
+
+      return [...defaultClusters, ...userClusters];
+    } catch (error) {
+      console.error('Failed to parse stored clusters:', error);
+      return defaultClusters;
+    }
+  });
 
   // Save to localStorage whenever clusters change (excluding defaults)
   useEffect(() => {

@@ -2,9 +2,10 @@ import { initTRPC, TRPCError } from "@trpc/server";
 import { getServerSession } from "next-auth";
 import superjson from "superjson";
 import { authOptions } from "@/lib/auth/auth-options";
-import { db } from "@/server/db";
+import { db, ensureDatabaseMigrations } from "@/server/db";
 
 export async function createTRPCContext() {
+  await ensureDatabaseMigrations();
   const session = await getServerSession(authOptions);
 
   return {

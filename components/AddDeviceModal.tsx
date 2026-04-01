@@ -1,6 +1,6 @@
-﻿'use client';
+'use client';
 
-import { useState, FormEvent, useEffect } from 'react';
+import { useState, FormEvent } from 'react';
 import { X } from 'lucide-react';
 import { useDevices, Device } from '@/contexts/DeviceContext';
 
@@ -66,17 +66,6 @@ export function AddDeviceModal({ isOpen, onClose }: AddDeviceModalProps) {
     source: '',
     notes: '',
   });
-
-  // Auto-generate Device ID from Device Name (only when deviceId is empty)
-  useEffect(() => {
-    if (formData.name && !formData.deviceId) {
-      const generatedId = formData.name
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-+|-+$/g, '');
-      setFormData((prev) => ({ ...prev, deviceId: generatedId }));
-    }
-  }, [formData.name]);
 
   if (!isOpen) return null;
 
@@ -185,9 +174,19 @@ export function AddDeviceModal({ isOpen, onClose }: AddDeviceModalProps) {
                       type="text"
                       required
                       value={formData.name}
-                      onChange={(e) =>
-                        setFormData({ ...formData, name: e.target.value })
-                      }
+                      onChange={(e) => {
+                        const nextName = e.target.value;
+                        const generatedId = nextName
+                          .toLowerCase()
+                          .replace(/[^a-z0-9]+/g, '-')
+                          .replace(/^-+|-+$/g, '');
+
+                        setFormData((prev) => ({
+                          ...prev,
+                          name: nextName,
+                          deviceId: prev.deviceId ? prev.deviceId : generatedId,
+                        }));
+                      }}
                       className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-input focus:outline-none"
                       placeholder="e.g., Mumbai AQI Station 01"
                     />

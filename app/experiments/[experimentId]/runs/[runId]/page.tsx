@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useParams } from "next/navigation";
+import { useMemo, useState } from "react";
 import { ChannelForm } from "@/components/channels/ChannelForm";
 import { ChannelList } from "@/components/channels/ChannelList";
 import { PageLayout } from "@/components/PageLayout";
@@ -33,7 +33,6 @@ function rangeForPreset(preset: TimeRangePreset) {
 
 export default function RunDetailsPage() {
   const params = useParams<{ experimentId: string; runId: string }>();
-  const router = useRouter();
   const utils = trpc.useUtils();
   const [deletingChannelId, setDeletingChannelId] = useState<string | null>(null);
   const [selectedPreset, setSelectedPreset] = useState<TimeRangePreset>("1h");
@@ -50,27 +49,29 @@ export default function RunDetailsPage() {
     runId: params.runId,
   });
 
+  const effectiveSelectedChannelIds = useMemo(() => {
+    const channelIds = channelsQuery.data?.map((channel) => channel.id) ?? [];
+    if (channelIds.length === 0) {
+      return [] as string[];
+    }
+    if (selectedChannelIds.length === 0) {
+      return channelIds;
+    }
+
+    return selectedChannelIds.filter((channelId) => channelIds.includes(channelId));
+  }, [channelsQuery.data, selectedChannelIds]);
+
   const telemetryQuery = trpc.telemetry.getTelemetryData.useQuery(
     {
       experimentId: params.experimentId,
       runId: params.runId,
-      channelIds: selectedChannelIds,
+      channelIds: effectiveSelectedChannelIds,
       range: telemetryRange,
     },
     {
-      enabled: selectedChannelIds.length > 0,
+      enabled: effectiveSelectedChannelIds.length > 0,
     },
   );
-
-  useEffect(() => {
-    if (!channelsQuery.data) return;
-
-    setSelectedChannelIds((prev) => {
-      const validIds = channelsQuery.data.map((channel) => channel.id);
-      if (prev.length === 0) return validIds;
-      return prev.filter((id) => validIds.includes(id));
-    });
-  }, [channelsQuery.data]);
 
   const updateRunMutation = trpc.runs.updateRun.useMutation({
     onSuccess: async () => {
@@ -205,7 +206,7 @@ export default function RunDetailsPage() {
                     id: channel.id,
                     name: channel.name,
                   }))}
-                  selectedChannelIds={selectedChannelIds}
+                  selectedChannelIds={effectiveSelectedChannelIds}
                   onChange={setSelectedChannelIds}
                 />
                 <TimeRangeSelector
