@@ -1,9 +1,6 @@
 import { randomUUID } from "crypto";
-import { mkdir, readFile, writeFile } from "fs/promises";
-import path from "path";
-
-const USERS_DIR = path.join(process.cwd(), "data");
-const USERS_FILE = path.join(USERS_DIR, "users.json");
+import { db } from "@/server/db";
+import { users } from "@/server/db/schema";
 
 export type StoredUser = {
   id: string;
@@ -13,29 +10,37 @@ export type StoredUser = {
   createdAt: string;
 };
 
-async function readUsers(): Promise<StoredUser[]> {
-  try {
-    const file = await readFile(USERS_FILE, "utf8");
-    const parsed = JSON.parse(file) as StoredUser[];
-    return Array.isArray(parsed) ? parsed : [];
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
-      return [];
-    }
-    throw error;
-  }
+function mapUserRow(row: typeof users.$inferSelect): StoredUser {
+  const createdAtValue = row.createdAt;
+  const createdAt =
+    createdAtValue instanceof Date
+      ? createdAtValue.toISOString()
+      : String(createdAtValue);
+
+  return {
+    id: row.id,
+    name: row.name,
+    email: row.email,
+    passwordHash: row.passwordHash,
+    createdAt,
+  };
 }
 
-async function writeUsers(users: StoredUser[]): Promise<void> {
-  await mkdir(USERS_DIR, { recursive: true });
-  await writeFile(USERS_FILE, JSON.stringify(users, null, 2), "utf8");
+function isPostgresUniqueViolation(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { code: string }).code === "23505"
+  );
 }
 
-export async function findUserByEmail(
-  email: string,
-): Promise<StoredUser | null> {
-  const users = await readUsers();
-  return users.find((user) => user.email === email) ?? null;
+export async function findUserByEmail(email: string): Promise<StoredUser | null> {
+  const row = await db.query.users.findFirst({
+    where: (userRow, { eq: eqOperator }) => eqOperator(userRow.email, email),
+  });
+
+  return row ? mapUserRow(row) : null;
 }
 
 export async function createUser(input: {
@@ -43,22 +48,28 @@ export async function createUser(input: {
   email: string;
   passwordHash: string;
 }): Promise<StoredUser> {
-  const users = await readUsers();
+  const newUserId = randomUUID();
 
-  if (users.some((user) => user.email === input.email)) {
-    throw new Error("EMAIL_EXISTS");
+  try {
+    const [insertedRow] = await db
+      .insert(users)
+      .values({
+        id: newUserId,
+        name: input.name,
+        email: input.email,
+        passwordHash: input.passwordHash,
+      })
+      .returning();
+
+    if (!insertedRow) {
+      throw new Error("USER_INSERT_RETURNED_NO_ROW");
+    }
+
+    return mapUserRow(insertedRow);
+  } catch (error) {
+    if (isPostgresUniqueViolation(error)) {
+      throw new Error("EMAIL_EXISTS");
+    }
+    throw error;
   }
-
-  const newUser: StoredUser = {
-    id: randomUUID(),
-    name: input.name,
-    email: input.email,
-    passwordHash: input.passwordHash,
-    createdAt: new Date().toISOString(),
-  };
-
-  users.push(newUser);
-  await writeUsers(users);
-
-  return newUser;
 }

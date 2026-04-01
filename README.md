@@ -12,8 +12,7 @@ NEXTAUTH_URL=http://localhost:3000
 DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/postgres
 ```
 
-Auth data is stored locally in `data/users.json` (gitignored).
-Database schema bootstrap runs automatically on first tRPC/API call.
+Credentials users live in Postgres (`users` table). Drizzle migrations run once on Node server startup (`instrumentation.ts`).
 
 ### Drizzle
 

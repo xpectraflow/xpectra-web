@@ -19,7 +19,8 @@ export const users = pgTable(
     email: text("email").notNull(),
     name: text("name").notNull(),
     passwordHash: text("password_hash").notNull(),
-    ...timestampColumns,
+    // Matches drizzle/0000: users has created_at only (no updated_at on this table).
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => ({
     usersEmailKey: uniqueIndex("users_email_key").on(table.email),
