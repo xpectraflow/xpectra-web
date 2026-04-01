@@ -2,31 +2,19 @@ import path from "path";
 import grpc from "@grpc/grpc-js";
 import protoLoader from "@grpc/proto-loader";
 
-const PROTO_PATH =
-  process.env.XPECTRA_CONSUMER_PROTO_PATH ??
-  path.resolve(
-    process.cwd(),
-    "..",
-    "xpectra-consumer",
-    "proto",
-    "xpectra",
-    "telemetry",
-    "v1",
-    "telemetry.proto",
-  );
+const PROTO_PATH = path.resolve(
+  process.cwd(),
+  "proto",
+  "xpectra",
+  "telemetry",
+  "v1",
+  "telemetry.proto",
+);
 
 const GRPC_ENDPOINT =
   process.env.XPECTRA_CONSUMER_GRPC_ADDR ??
   process.env.GRPC_CONSUMER_ADDR ??
   "127.0.0.1:50051";
-
-const packageDefinition = protoLoader.loadSync(PROTO_PATH, {
-  keepCase: true,
-  longs: String,
-  enums: String,
-  defaults: true,
-  oneofs: true,
-});
 
 type QueryPoint = {
   channelId: string;
@@ -48,7 +36,7 @@ type ProtoTimestamp = {
   nanos?: number;
 };
 
-const grpcObject = grpc.loadPackageDefinition(packageDefinition) as unknown as {
+type TelemetryGrpcObject = {
   xpectra: {
     telemetry: {
       v1: {
@@ -75,10 +63,36 @@ const grpcObject = grpc.loadPackageDefinition(packageDefinition) as unknown as {
   };
 };
 
-const telemetryClient = new grpcObject.xpectra.telemetry.v1.TelemetryService(
-  GRPC_ENDPOINT,
-  grpc.credentials.createInsecure(),
-);
+type TelemetryClient = InstanceType<
+  TelemetryGrpcObject["xpectra"]["telemetry"]["v1"]["TelemetryService"]
+>;
+
+let telemetryClient: TelemetryClient | null = null;
+
+function getTelemetryClient(): TelemetryClient {
+  if (telemetryClient) {
+    return telemetryClient;
+  }
+
+  const packageDefinition = protoLoader.loadSync(PROTO_PATH, {
+    keepCase: true,
+    longs: String,
+    enums: String,
+    defaults: true,
+    oneofs: true,
+  });
+
+  const grpcObject = grpc.loadPackageDefinition(
+    packageDefinition,
+  ) as unknown as TelemetryGrpcObject;
+
+  telemetryClient = new grpcObject.xpectra.telemetry.v1.TelemetryService(
+    GRPC_ENDPOINT,
+    grpc.credentials.createInsecure(),
+  );
+
+  return telemetryClient;
+}
 
 function toProtoTimestamp(isoDate: string): { seconds: number; nanos: number } {
   const date = new Date(isoDate);
@@ -97,8 +111,10 @@ function fromProtoTimestamp(timestamp: ProtoTimestamp | undefined): string {
 export async function queryTelemetryFromConsumer(
   input: QueryTelemetryInput,
 ): Promise<QueryPoint[]> {
+  const grpcTelemetryClient = getTelemetryClient();
+
   return new Promise((resolve, reject) => {
-    telemetryClient.Query(
+    grpcTelemetryClient.Query(
       {
         experiment_id: input.experimentId,
         run_id: input.runId,

@@ -1,0 +1,78 @@
+syntax = "proto3";
+
+package xpectra.telemetry.v1;
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/empty.proto";
+
+option go_package = "github.com/xpectraflow/xpectra-consumer/gen/xpectra/telemetry/v1;xpectratelemetryv1";
+
+message TelemetryPoint {
+  google.protobuf.Timestamp timestamp = 1;
+  string channel_id = 2;
+  oneof type {
+    string string = 3;
+    double double = 4;
+    float float = 5;
+    bool bool = 6;
+    int32 int32 = 7;
+    uint32 uint32 = 8;
+    int64 int64 = 9;
+    uint64 uint64 = 10;
+    bytes bit_field = 11;
+    uint32 enum = 12;
+    google.protobuf.Empty empty = 13;
+    bytes bytes = 14;
+  }
+}
+
+message IngestRequest {
+  string experiment_id = 1;
+  string run_id = 2;
+  repeated TelemetryPoint points = 3;
+}
+
+message SubmitResponse {
+  int32 accepted_points = 1;
+}
+
+message StreamSubmitResponse {
+  int32 accepted_points = 1;
+}
+
+message TelemetryStreamChunk {
+  oneof payload {
+    StreamSessionHeader session = 1;
+    TelemetryPoint point = 2;
+  }
+}
+
+message StreamSessionHeader {
+  string experiment_id = 1;
+  string run_id = 2;
+}
+
+message QueryRequest {
+  string experiment_id = 1;
+  string run_id = 2;
+  repeated string channel_ids = 3;
+  google.protobuf.Timestamp from = 4;
+  google.protobuf.Timestamp to = 5;
+  int32 max_points_per_channel = 6;
+}
+
+message NumericTelemetryPoint {
+  google.protobuf.Timestamp timestamp = 1;
+  string channel_id = 2;
+  double value = 3;
+}
+
+message QueryResponse {
+  repeated NumericTelemetryPoint points = 1;
+}
+
+service TelemetryService {
+  rpc Submit(IngestRequest) returns (SubmitResponse);
+  rpc StreamSubmit(stream TelemetryStreamChunk) returns (StreamSubmitResponse);
+  rpc Query(QueryRequest) returns (QueryResponse);
+}
