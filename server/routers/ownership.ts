@@ -31,16 +31,45 @@ export async function getOrCreateDbUser(input: {
   return input.sessionUserId;
 }
 
-export async function assertExperimentOwnership(input: {
+export function userInfoFromSession(session: {
+  user: { id: string; email?: string | null; name?: string | null };
+}) {
+  return {
+    sessionUserId: session.user.id,
+    email: session.user.email ?? `${session.user.id}@local`,
+    name: session.user.name ?? "Local User",
+  };
+}
+
+export async function getPrimaryOrganizationIdForUser(input: {
+  db: (typeof import("@/server/db"))["db"];
+  userId: string;
+}) {
+  const user = await input.db.query.users.findFirst({
+    where: (userRow, { eq: eqOperator }) => eqOperator(userRow.id, input.userId),
+    columns: { primaryOrganizationId: true },
+  });
+
+  if (!user || !user.primaryOrganizationId) {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "No organization found for the current user.",
+    });
+  }
+
+  return user.primaryOrganizationId;
+}
+
+export async function assertExperimentInOrganization(input: {
   db: (typeof import("@/server/db"))["db"];
   experimentId: string;
-  userId: string;
+  organizationId: string;
 }) {
   const experiment = await input.db.query.experiments.findFirst({
     where: (experimentRow, { and: andOperator, eq: eqOperator }) =>
       andOperator(
         eqOperator(experimentRow.id, input.experimentId),
-        eqOperator(experimentRow.userId, input.userId),
+        eqOperator(experimentRow.organizationId, input.organizationId),
       ),
   });
 
@@ -51,16 +80,16 @@ export async function assertExperimentOwnership(input: {
   return experiment;
 }
 
-export async function assertRunOwnership(input: {
+export async function assertRunInOrganization(input: {
   db: (typeof import("@/server/db"))["db"];
   experimentId: string;
   runId: string;
-  userId: string;
+  organizationId: string;
 }) {
-  await assertExperimentOwnership({
+  await assertExperimentInOrganization({
     db: input.db,
     experimentId: input.experimentId,
-    userId: input.userId,
+    organizationId: input.organizationId,
   });
 
   const run = await input.db.query.runs.findFirst({
@@ -76,14 +105,4 @@ export async function assertRunOwnership(input: {
   }
 
   return run;
-}
-
-export function userInfoFromSession(session: {
-  user: { id: string; email?: string | null; name?: string | null };
-}) {
-  return {
-    sessionUserId: session.user.id,
-    email: session.user.email ?? `${session.user.id}@local`,
-    name: session.user.name ?? "Local User",
-  };
 }

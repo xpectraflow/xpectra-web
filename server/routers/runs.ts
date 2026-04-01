@@ -4,8 +4,10 @@ import { and, desc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { runs } from "@/server/db/schema";
 import {
-  assertExperimentOwnership,
+  assertExperimentInOrganization,
+  assertRunInOrganization,
   getOrCreateDbUser,
+  getPrimaryOrganizationIdForUser,
   userInfoFromSession,
 } from "@/server/routers/ownership";
 import { createTRPCRouter, protectedProcedure } from "@/server/trpc";
@@ -38,11 +40,15 @@ export const runsRouter = createTRPCRouter({
       db: ctx.db,
       ...userInfoFromSession(ctx.session),
     });
+    const organizationId = await getPrimaryOrganizationIdForUser({
+      db: ctx.db,
+      userId,
+    });
 
-    await assertExperimentOwnership({
+    await assertExperimentInOrganization({
       db: ctx.db,
       experimentId: input.experimentId,
-      userId,
+      organizationId,
     });
 
     const [createdRun] = await ctx.db
@@ -63,11 +69,15 @@ export const runsRouter = createTRPCRouter({
       db: ctx.db,
       ...userInfoFromSession(ctx.session),
     });
+    const organizationId = await getPrimaryOrganizationIdForUser({
+      db: ctx.db,
+      userId,
+    });
 
-    await assertExperimentOwnership({
+    await assertExperimentInOrganization({
       db: ctx.db,
       experimentId: input.experimentId,
-      userId,
+      organizationId,
     });
 
     return ctx.db
@@ -82,11 +92,16 @@ export const runsRouter = createTRPCRouter({
       db: ctx.db,
       ...userInfoFromSession(ctx.session),
     });
+    const organizationId = await getPrimaryOrganizationIdForUser({
+      db: ctx.db,
+      userId,
+    });
 
-    await assertExperimentOwnership({
+    await assertRunInOrganization({
       db: ctx.db,
       experimentId: input.experimentId,
-      userId,
+      runId: input.id,
+      organizationId,
     });
 
     const run = await ctx.db.query.runs.findFirst({
@@ -109,11 +124,16 @@ export const runsRouter = createTRPCRouter({
       db: ctx.db,
       ...userInfoFromSession(ctx.session),
     });
+    const organizationId = await getPrimaryOrganizationIdForUser({
+      db: ctx.db,
+      userId,
+    });
 
-    await assertExperimentOwnership({
+    await assertRunInOrganization({
       db: ctx.db,
       experimentId: input.experimentId,
-      userId,
+      runId: input.id,
+      organizationId,
     });
 
     const [updatedRun] = await ctx.db
@@ -139,11 +159,16 @@ export const runsRouter = createTRPCRouter({
       db: ctx.db,
       ...userInfoFromSession(ctx.session),
     });
+    const organizationId = await getPrimaryOrganizationIdForUser({
+      db: ctx.db,
+      userId,
+    });
 
-    await assertExperimentOwnership({
+    await assertRunInOrganization({
       db: ctx.db,
       experimentId: input.experimentId,
-      userId,
+      runId: input.id,
+      organizationId,
     });
 
     const [deletedRun] = await ctx.db

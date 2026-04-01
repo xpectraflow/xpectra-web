@@ -7,7 +7,9 @@ export type StoredUser = {
   name: string;
   email: string;
   passwordHash: string;
+  primaryOrganizationId?: string | null;
   createdAt: string;
+  updatedAt: string;
 };
 
 function mapUserRow(row: typeof users.$inferSelect): StoredUser {
@@ -16,13 +18,20 @@ function mapUserRow(row: typeof users.$inferSelect): StoredUser {
     createdAtValue instanceof Date
       ? createdAtValue.toISOString()
       : String(createdAtValue);
+  const updatedAtValue = row.updatedAt;
+  const updatedAt =
+    updatedAtValue instanceof Date
+      ? updatedAtValue.toISOString()
+      : String(updatedAtValue);
 
   return {
     id: row.id,
     name: row.name,
     email: row.email,
     passwordHash: row.passwordHash,
+    primaryOrganizationId: row.primaryOrganizationId ?? null,
     createdAt,
+    updatedAt,
   };
 }
 

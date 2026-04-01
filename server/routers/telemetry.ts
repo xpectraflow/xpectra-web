@@ -3,8 +3,9 @@ import { z } from "zod";
 import { queryTelemetryFromConsumer } from "@/lib/consumer-telemetry-client";
 import { channels } from "@/server/db/schema";
 import {
-  assertRunOwnership,
+  assertRunInOrganization,
   getOrCreateDbUser,
+  getPrimaryOrganizationIdForUser,
   userInfoFromSession,
 } from "@/server/routers/ownership";
 import { createTRPCRouter, protectedProcedure } from "@/server/trpc";
@@ -54,12 +55,16 @@ export const telemetryRouter = createTRPCRouter({
         db: ctx.db,
         ...userInfoFromSession(ctx.session),
       });
+      const organizationId = await getPrimaryOrganizationIdForUser({
+        db: ctx.db,
+        userId,
+      });
 
-      await assertRunOwnership({
+      await assertRunInOrganization({
         db: ctx.db,
         experimentId: input.experimentId,
         runId: input.runId,
-        userId,
+        organizationId,
       });
 
       const requestedChannels = await ctx.db

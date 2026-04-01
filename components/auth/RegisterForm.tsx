@@ -39,10 +39,12 @@ export function RegisterForm() {
       return;
     }
 
+    const onBoardingUrl = "/organizations/setup";
+
     const signInResult = await signIn("credentials", {
       email,
       password,
-      callbackUrl: "/",
+      callbackUrl: onBoardingUrl,
       redirect: false,
     });
 
@@ -53,7 +55,7 @@ export function RegisterForm() {
       return;
     }
 
-    router.push(signInResult?.url ?? "/");
+    router.push(signInResult?.url ?? onBoardingUrl);
     router.refresh();
   }
 

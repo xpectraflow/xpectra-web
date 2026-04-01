@@ -3,7 +3,12 @@ import { TRPCError } from "@trpc/server";
 import { and, desc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { experiments } from "@/server/db/schema";
-import { getOrCreateDbUser, userInfoFromSession } from "@/server/routers/ownership";
+import {
+  assertExperimentInOrganization,
+  getOrCreateDbUser,
+  getPrimaryOrganizationIdForUser,
+  userInfoFromSession,
+} from "@/server/routers/ownership";
 import { createTRPCRouter, protectedProcedure } from "@/server/trpc";
 
 const createExperimentInput = z.object({
@@ -29,11 +34,17 @@ export const experimentsRouter = createTRPCRouter({
         ...userInfoFromSession(ctx.session),
       });
 
+      const organizationId = await getPrimaryOrganizationIdForUser({
+        db: ctx.db,
+        userId,
+      });
+
       const [createdExperiment] = await ctx.db
         .insert(experiments)
         .values({
           id: randomUUID(),
-          userId,
+          organizationId,
+          createdBy: userId,
           name: input.name,
           description: input.description ?? null,
           status: input.status,
@@ -49,10 +60,15 @@ export const experimentsRouter = createTRPCRouter({
       ...userInfoFromSession(ctx.session),
     });
 
+    const organizationId = await getPrimaryOrganizationIdForUser({
+      db: ctx.db,
+      userId,
+    });
+
     return ctx.db
       .select()
       .from(experiments)
-      .where(eq(experiments.userId, userId))
+      .where(eq(experiments.organizationId, organizationId))
       .orderBy(desc(experiments.createdAt));
   }),
 
@@ -64,19 +80,16 @@ export const experimentsRouter = createTRPCRouter({
         ...userInfoFromSession(ctx.session),
       });
 
-      const experiment = await ctx.db.query.experiments.findFirst({
-        where: (experimentRow, { and, eq }) =>
-          and(
-            eq(experimentRow.id, input.id),
-            eq(experimentRow.userId, userId),
-          ),
+      const organizationId = await getPrimaryOrganizationIdForUser({
+        db: ctx.db,
+        userId,
       });
 
-      if (!experiment) {
-        throw new TRPCError({ code: "NOT_FOUND" });
-      }
-
-      return experiment;
+      return assertExperimentInOrganization({
+        db: ctx.db,
+        experimentId: input.id,
+        organizationId,
+      });
     }),
 
   updateExperiment: protectedProcedure
@@ -85,6 +98,17 @@ export const experimentsRouter = createTRPCRouter({
       const userId = await getOrCreateDbUser({
         db: ctx.db,
         ...userInfoFromSession(ctx.session),
+      });
+
+      const organizationId = await getPrimaryOrganizationIdForUser({
+        db: ctx.db,
+        userId,
+      });
+
+      await assertExperimentInOrganization({
+        db: ctx.db,
+        experimentId: input.id,
+        organizationId,
       });
 
       const [updatedExperiment] = await ctx.db
@@ -96,7 +120,7 @@ export const experimentsRouter = createTRPCRouter({
           updatedAt: new Date(),
         })
         .where(
-          and(eq(experiments.id, input.id), eq(experiments.userId, userId)),
+          and(eq(experiments.id, input.id), eq(experiments.organizationId, organizationId)),
         )
         .returning();
 
@@ -115,10 +139,21 @@ export const experimentsRouter = createTRPCRouter({
         ...userInfoFromSession(ctx.session),
       });
 
+      const organizationId = await getPrimaryOrganizationIdForUser({
+        db: ctx.db,
+        userId,
+      });
+
+      await assertExperimentInOrganization({
+        db: ctx.db,
+        experimentId: input.id,
+        organizationId,
+      });
+
       const [deletedExperiment] = await ctx.db
         .delete(experiments)
         .where(
-          and(eq(experiments.id, input.id), eq(experiments.userId, userId)),
+          and(eq(experiments.id, input.id), eq(experiments.organizationId, organizationId)),
         )
         .returning({ id: experiments.id });
 

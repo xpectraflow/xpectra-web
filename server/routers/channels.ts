@@ -4,8 +4,9 @@ import { and, asc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { channels } from "@/server/db/schema";
 import {
-  assertRunOwnership,
+  assertRunInOrganization,
   getOrCreateDbUser,
+  getPrimaryOrganizationIdForUser,
   userInfoFromSession,
 } from "@/server/routers/ownership";
 import { createTRPCRouter, protectedProcedure } from "@/server/trpc";
@@ -35,17 +36,22 @@ export const channelsRouter = createTRPCRouter({
   createChannel: protectedProcedure
     .input(createChannelInput)
     .mutation(async ({ ctx, input }) => {
-      const userId = await getOrCreateDbUser({
-        db: ctx.db,
-        ...userInfoFromSession(ctx.session),
-      });
+    const userId = await getOrCreateDbUser({
+      db: ctx.db,
+      ...userInfoFromSession(ctx.session),
+    });
 
-      await assertRunOwnership({
-        db: ctx.db,
-        experimentId: input.experimentId,
-        runId: input.runId,
-        userId,
-      });
+    const organizationId = await getPrimaryOrganizationIdForUser({
+      db: ctx.db,
+      userId,
+    });
+
+    await assertRunInOrganization({
+      db: ctx.db,
+      experimentId: input.experimentId,
+      runId: input.runId,
+      organizationId,
+    });
 
       const [createdChannel] = await ctx.db
         .insert(channels)
@@ -64,17 +70,21 @@ export const channelsRouter = createTRPCRouter({
   getChannels: protectedProcedure
     .input(channelScopeInput)
     .query(async ({ ctx, input }) => {
-      const userId = await getOrCreateDbUser({
-        db: ctx.db,
-        ...userInfoFromSession(ctx.session),
-      });
+    const userId = await getOrCreateDbUser({
+      db: ctx.db,
+      ...userInfoFromSession(ctx.session),
+    });
+    const organizationId = await getPrimaryOrganizationIdForUser({
+      db: ctx.db,
+      userId,
+    });
 
-      await assertRunOwnership({
-        db: ctx.db,
-        experimentId: input.experimentId,
-        runId: input.runId,
-        userId,
-      });
+    await assertRunInOrganization({
+      db: ctx.db,
+      experimentId: input.experimentId,
+      runId: input.runId,
+      organizationId,
+    });
 
       return ctx.db
         .select()
@@ -86,17 +96,21 @@ export const channelsRouter = createTRPCRouter({
   updateChannel: protectedProcedure
     .input(updateChannelInput)
     .mutation(async ({ ctx, input }) => {
-      const userId = await getOrCreateDbUser({
-        db: ctx.db,
-        ...userInfoFromSession(ctx.session),
-      });
+    const userId = await getOrCreateDbUser({
+      db: ctx.db,
+      ...userInfoFromSession(ctx.session),
+    });
+    const organizationId = await getPrimaryOrganizationIdForUser({
+      db: ctx.db,
+      userId,
+    });
 
-      await assertRunOwnership({
-        db: ctx.db,
-        experimentId: input.experimentId,
-        runId: input.runId,
-        userId,
-      });
+    await assertRunInOrganization({
+      db: ctx.db,
+      experimentId: input.experimentId,
+      runId: input.runId,
+      organizationId,
+    });
 
       const [updatedChannel] = await ctx.db
         .update(channels)
@@ -118,17 +132,21 @@ export const channelsRouter = createTRPCRouter({
   deleteChannel: protectedProcedure
     .input(channelIdInput)
     .mutation(async ({ ctx, input }) => {
-      const userId = await getOrCreateDbUser({
-        db: ctx.db,
-        ...userInfoFromSession(ctx.session),
-      });
+    const userId = await getOrCreateDbUser({
+      db: ctx.db,
+      ...userInfoFromSession(ctx.session),
+    });
+    const organizationId = await getPrimaryOrganizationIdForUser({
+      db: ctx.db,
+      userId,
+    });
 
-      await assertRunOwnership({
-        db: ctx.db,
-        experimentId: input.experimentId,
-        runId: input.runId,
-        userId,
-      });
+    await assertRunInOrganization({
+      db: ctx.db,
+      experimentId: input.experimentId,
+      runId: input.runId,
+      organizationId,
+    });
 
       const [deletedChannel] = await ctx.db
         .delete(channels)

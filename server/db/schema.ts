@@ -8,9 +8,20 @@ import {
 } from "drizzle-orm/pg-core";
 
 const timestampColumns = {
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
 };
+
+export const organizations = pgTable("organizations", {
+  id: uuid("id").primaryKey(),
+  name: text("name").notNull(),
+  type: text("type").notNull().default("personal"),
+  ...timestampColumns,
+});
 
 export const users = pgTable(
   "users",
@@ -19,8 +30,10 @@ export const users = pgTable(
     email: text("email").notNull(),
     name: text("name").notNull(),
     passwordHash: text("password_hash").notNull(),
-    // Matches drizzle/0000: users has created_at only (no updated_at on this table).
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    primaryOrganizationId: uuid("primary_organization_id").references(
+      () => organizations.id,
+    ),
+    ...timestampColumns,
   },
   (table) => ({
     usersEmailKey: uniqueIndex("users_email_key").on(table.email),
@@ -29,7 +42,10 @@ export const users = pgTable(
 
 export const experiments = pgTable("experiments", {
   id: uuid("id").primaryKey(),
-  userId: uuid("user_id")
+  organizationId: uuid("organization_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  createdBy: uuid("created_by_user_id")
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
@@ -61,13 +77,24 @@ export const channels = pgTable("channels", {
   ...timestampColumns,
 });
 
-export const usersRelations = relations(users, ({ many }) => ({
+export const organizationsRelations = relations(organizations, ({ many }) => ({
   experiments: many(experiments),
 }));
 
+export const usersRelations = relations(users, ({ one }) => ({
+  primaryOrganization: one(organizations, {
+    fields: [users.primaryOrganizationId],
+    references: [organizations.id],
+  }),
+}));
+
 export const experimentsRelations = relations(experiments, ({ one, many }) => ({
-  user: one(users, {
-    fields: [experiments.userId],
+  organization: one(organizations, {
+    fields: [experiments.organizationId],
+    references: [organizations.id],
+  }),
+  createdByUser: one(users, {
+    fields: [experiments.createdBy],
     references: [users.id],
   }),
   runs: many(runs),
