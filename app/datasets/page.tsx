@@ -6,13 +6,6 @@ import { Plus, Search } from 'lucide-react';
 import { useDevices, Device } from '@/contexts/DeviceContext';
 import { DeviceDetailsDrawer } from '@/components/DeviceDetailsDrawer';
 
-const staticDataset = {
-  group: 'Personal Datasets',
-  name: 'arush kumar singh',
-  temporalCoverage: '—',
-  datapoints: 0,
-  source: 'Internal',
-};
 
 const getSignalUnit = (signal: string): string => {
   const units: Record<string, string> = {
@@ -50,13 +43,12 @@ export default function DatasetsPage() {
   const [selectedDevice, setSelectedDevice] = useState<Device | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [hoveredRow, setHoveredRow] = useState<number | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
-  // Static mapping of dataset names to active job counts
   const getActiveJobsCount = (datasetName: string): number => {
     const nameLower = datasetName.toLowerCase();
     if (nameLower.includes('mosdac')) return 2;
     if (nameLower.includes('aqi')) return 1;
-    // User-created datasets default to 0 or 1 (randomly 0 for demo)
     return 0;
   };
 
@@ -73,20 +65,23 @@ export default function DatasetsPage() {
     device?: Device;
   };
 
-  const tableRows: TableRow[] =
-    devices.length === 0
-      ? [{ ...staticDataset, id: 'static', isStatic: true, activeJobs: getActiveJobsCount(staticDataset.name) }]
-      : devices.map((device) => ({
-          id: device.id,
-          group: 'Personal Datasets',
-          name: device.name,
-          temporalCoverage: '—',
-          datapoints: 0,
-          source: device.source || 'Internal',
-          device: device,
-          isStatic: false,
-          activeJobs: getActiveJobsCount(device.name),
-        }));
+  const tableRows: TableRow[] = devices.map((device) => ({
+    id: device.id,
+    group: 'Personal Datasets',
+    name: device.name,
+    temporalCoverage: '—',
+    datapoints: 0,
+    source: device.source || 'Internal',
+    device: device,
+    isStatic: false,
+    activeJobs: getActiveJobsCount(device.name),
+  }));
+
+  const filteredRows = tableRows.filter(
+    (row) =>
+      row.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      row.group.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   const handleRowClick = (row: TableRow) => {
     if (!row.isStatic && row.device) {
@@ -114,6 +109,8 @@ export default function DatasetsPage() {
             <input
               type="text"
               placeholder="Search datasets..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full rounded-lg border border-border bg-card py-2 pl-10 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-input focus:outline-none"
             />
           </div>
@@ -141,7 +138,16 @@ export default function DatasetsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {tableRows.map((row, index) => {
+                {filteredRows.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-4 py-8 text-center text-sm text-muted-foreground">
+                      {devices.length === 0
+                        ? "No datasets yet. Create a dataset through the client."
+                        : "No datasets match your search."}
+                    </td>
+                  </tr>
+                ) : (
+                  filteredRows.map((row, index) => {
                   const device = row.device as Device | undefined;
                   const isHovered = hoveredRow === index;
 
@@ -268,7 +274,8 @@ export default function DatasetsPage() {
                       )}
                     </tr>
                   );
-                })}
+                  })
+                )}
               </tbody>
             </table>
           </div>

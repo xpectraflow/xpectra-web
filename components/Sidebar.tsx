@@ -90,8 +90,7 @@ export function Sidebar() {
               <div className="mb-2 px-3 text-xs font-medium uppercase tracking-wider text-sidebar-foreground">
                 Home
               </div>
-              <SidebarItem href="/" icon={House} label="Dashboard" />
-              <SidebarItem href="/quickstart" icon={Rocket} label="Quickstart" />
+              <SidebarItem href="/" icon={Rocket} label="Quickstart" />
               <SidebarItem href="/usage" icon={BarChart3} label="Usage" />
             </div>
 
