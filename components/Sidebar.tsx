@@ -16,6 +16,7 @@ import {
   LogOut,
   FlaskConical,
   Activity,
+  Gamepad,
 } from 'lucide-react';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
@@ -109,6 +110,11 @@ export function Sidebar() {
                 icon={Database}
                 label="My datasets"
                 count={devices.length}
+              />
+              <SidebarItem
+                href="/playground"
+                icon={Gamepad}
+                label="Playground"
               />
               <SidebarItem
                 href="/datasets/open"
