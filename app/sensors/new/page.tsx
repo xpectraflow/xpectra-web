@@ -5,10 +5,12 @@ import { PageLayout } from '@/components/PageLayout';
 import { ExcelTable } from '@/components/ui/excel-style-table';
 import { trpc } from '@/lib/trpc';
 import { toast } from 'sonner';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 export default function CreateSensorPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const duplicateId = searchParams.get('duplicate');
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [Serialnumber, setSerialNumber] = useState('');
@@ -32,6 +34,20 @@ export default function CreateSensorPage() {
 
   const generateUploadUrl = trpc.sensors.generateUploadUrl.useMutation();
 
+  const { data: baseSensor } = trpc.sensors.getSensorById.useQuery(
+    { id: duplicateId || '' },
+    { enabled: !!duplicateId }
+  );
+
+  useEffect(() => {
+    if (!baseSensor) return;
+    setName(`${baseSensor.name} (Copy)`);
+    setDescription(baseSensor.description || '');
+    setSerialNumber(baseSensor.serialNumber || '');
+    setChannelCount(baseSensor.channelCount);
+    // Don't copy calibratedAt or sheet URL as those are unique to the physical device
+  }, [baseSensor]);
+
   // Re-initialize table when channelCount changes
   useEffect(() => {
     const cCount = Math.max(1, channelCount);
@@ -49,23 +65,32 @@ export default function CreateSensorPage() {
     setHeaders(newHeaders);
 
     const newData: string[][] = [];
+    const calibrationMatrix = baseSensor?.calibrationMatrix || [];
+    const bias = baseSensor?.bias || [];
+    const channels = baseSensor?.channels || [];
+
     for (let i = 0; i < cCount; i++) {
       const row = [];
-      row.push(`Channel ${i + 1}`); // Name
+      const ch = channels.find(c => c.channelIndex === i) || null;
+
+      row.push(ch?.name || `Channel ${i + 1}`);
+
       for (let j = 0; j < cCount; j++) {
-        row.push(i === j ? "1" : "0"); // Identity matrix
+        const val = calibrationMatrix[i]?.[j];
+        row.push(val !== undefined ? val.toString() : (i === j ? "1" : "0"));
       }
+
       row.push(""); // Spacer 1
-      row.push("0"); // Bias
-      row.push(null); // Min value
-      row.push(null); // Max value
-      row.push(null); // Fail Lo
-      row.push(null); // Fail Hi
-      row.push("-"); // Unit string indicator (Volts)
+      row.push(bias[i] !== undefined ? bias[i].toString() : "0");
+      row.push(ch?.minValue?.toString() || "");
+      row.push(ch?.maxValue?.toString() || "");
+      row.push(ch?.failureThresholdLo?.toString() || "");
+      row.push(ch?.failureThresholdHi?.toString() || "");
+      row.push(ch?.unit || "-");
       newData.push(row);
     }
     setData(newData);
-  }, [channelCount]);
+  }, [channelCount, baseSensor]);
 
   const handleCellChange = (row: number, col: number, value: string) => {
     const newData = [...data];
@@ -100,7 +125,11 @@ export default function CreateSensorPage() {
       for (let i = 0; i < cCount; i++) {
         const rowData = data[i];
 
-        const parseNum = (val: string) => val === '' ? null : parseFloat(val);
+        const parseNum = (val: any) => {
+          if (val === null || val === undefined || val === '' || val === '-') return null;
+          const parsed = parseFloat(val);
+          return isNaN(parsed) ? null : parsed;
+        };
 
         // Channels array
         channels.push({

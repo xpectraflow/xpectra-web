@@ -100,6 +100,11 @@ export function Sidebar() {
               </div>
               <SidebarItem href="/sensors" icon={Activity} label="Sensors" />
               <SidebarItem
+                href="/experiments"
+                icon={FlaskConical}
+                label="Experiments"
+              />
+              <SidebarItem
                 href="/datasets"
                 icon={Database}
                 label="My datasets"
@@ -125,11 +130,6 @@ export function Sidebar() {
               <SidebarItem href="/clusters" icon={Server} label="Clusters" />
               <SidebarItem href="/jobs" icon={Briefcase} label="Jobs" />
               <SidebarItem href="/automations" icon={Zap} label="Automations" />
-              <SidebarItem
-                href="/experiments"
-                icon={FlaskConical}
-                label="Experiments"
-              />
             </div>
           </div>
         )}

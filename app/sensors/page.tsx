@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { PageLayout } from '@/components/PageLayout';
-import { Plus, Search, Edit2 } from 'lucide-react';
+import { Plus, Search, Eye, Copy } from 'lucide-react';
 import { trpc } from '@/lib/trpc';
 import Link from 'next/link';
 
@@ -105,10 +105,16 @@ export default function SensorsPage() {
                       {sensor.calibratedAt ? new Date(sensor.calibratedAt).toLocaleDateString() : '—'}
                     </td>
                     <td className="px-4 py-3 text-sm text-muted-foreground">
-                      <button className="inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-medium hover:bg-accent hover:text-accent-foreground text-muted-foreground transition-colors">
-                        <Edit2 className="h-3.5 w-3.5" /> 
-                        Edit
-                      </button>
+                      <div className="flex gap-2">
+                        <Link href={`/sensors/${sensor.id}`} className="inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-medium hover:bg-accent hover:text-accent-foreground text-muted-foreground transition-colors">
+                          <Eye className="h-3.5 w-3.5" /> 
+                          View
+                        </Link>
+                        <Link href={`/sensors/new?duplicate=${sensor.id}`} className="inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-medium hover:bg-accent hover:text-accent-foreground text-muted-foreground transition-colors">
+                          <Copy className="h-3.5 w-3.5" /> 
+                          Duplicate
+                        </Link>
+                      </div>
                     </td>
                   </tr>
                 ))

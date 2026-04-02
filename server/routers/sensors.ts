@@ -2,7 +2,7 @@ import { randomUUID } from "crypto";
 import { TRPCError } from "@trpc/server";
 import { desc, eq } from "drizzle-orm";
 import { z } from "zod";
-import { PutObjectCommand } from "@aws-sdk/client-s3";
+import { PutObjectCommand, HeadBucketCommand, CreateBucketCommand, PutBucketCorsCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { s3Client } from "@/server/s3";
 import { sensors, sensorChannels, organizations } from "@/server/db/schema";
@@ -114,6 +114,35 @@ export const sensorsRouter = createTRPCRouter({
       .orderBy(desc(sensors.createdAt));
   }),
 
+  getSensorById: protectedProcedure
+    .input(z.object({ id: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      const userId = await getOrCreateDbUser({
+        db: ctx.db,
+        ...userInfoFromSession(ctx.session),
+      });
+
+      const organizationId = await getPrimaryOrganizationIdForUser({
+        db: ctx.db,
+        userId,
+      });
+
+      const sensor = await ctx.db.query.sensors.findFirst({
+        where: (row, { and, eq }) => and(eq(row.id, input.id), eq(row.organisationId, organizationId)),
+        with: {
+          channels: {
+            orderBy: (channelsRow, { asc }) => [asc(channelsRow.channelIndex)],
+          },
+        },
+      });
+
+      if (!sensor) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Sensor not found" });
+      }
+
+      return sensor;
+    }),
+
   generateUploadUrl: protectedProcedure
     .input(z.object({ filename: z.string(), contentType: z.string() }))
     .mutation(async ({ ctx, input }) => {
@@ -145,8 +174,34 @@ export const sensorsRouter = createTRPCRouter({
         ContentType: input.contentType,
       };
       
+      // Ensure bucket exists and has correct CORS (handles legacy buckets without CORS)
+      try {
+        await s3Client.send(new HeadBucketCommand({ Bucket: org.slug }));
+      } catch (e: any) {
+        if (e.name === 'NotFound' || e.$metadata?.httpStatusCode === 404) {
+          await s3Client.send(new CreateBucketCommand({ Bucket: org.slug }));
+        }
+      }
+      try {
+        await s3Client.send(new PutBucketCorsCommand({
+          Bucket: org.slug,
+          CORSConfiguration: {
+            CORSRules: [
+              {
+                AllowedHeaders: ["*"],
+                AllowedMethods: ["PUT", "POST", "GET", "HEAD", "DELETE"],
+                AllowedOrigins: ["*"],
+                ExposeHeaders: ["ETag"],
+                MaxAgeSeconds: 3600,
+              }
+            ]
+          }
+        }));
+      } catch (e) {}
+
       const presignedUrl = await getSignedUrl(s3Client, new PutObjectCommand(param), {
         expiresIn: 3600,
+        unhoistableHeaders: new Set(["x-amz-sdk-checksum-algorithm", "x-amz-checksum-crc32"])
       });
 
       const endpoint = process.env.XPECTRA_S3_MEDIA_UPLOAD_ENDPOINT as string;

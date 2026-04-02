@@ -3,10 +3,12 @@
 import Link from "next/link";
 import { useState } from "react";
 import { ExperimentList } from "@/components/experiments/ExperimentList";
+import { Plus, Search, Eye, Copy } from 'lucide-react';
 import { PageLayout } from "@/components/PageLayout";
 import { trpc } from "@/lib/trpc";
 
 export default function ExperimentsPage() {
+  const [searchQuery, setSearchQuery] = useState('');
   const utils = trpc.useUtils();
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
@@ -24,7 +26,7 @@ export default function ExperimentsPage() {
   return (
     <PageLayout
       title="Experiments"
-      description="Track and manage your telemetry experiments."
+      description="Setup and view your experiments."
       action={
         <Link
           href="/experiments/create"
@@ -34,26 +36,40 @@ export default function ExperimentsPage() {
         </Link>
       }
     >
-      {experimentsQuery.isLoading && (
-        <p className="text-sm text-muted-foreground">Loading experiments...</p>
-      )}
+      <div className="space-y-4">
+        Search
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <input
+            type="text"
+            placeholder="Search experiments by name..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full rounded-lg border border-border bg-card py-2 pl-10 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-input focus:outline-none"
+          />
+        </div>
 
-      {experimentsQuery.error && (
-        <p className="rounded-lg border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive-foreground">
-          Failed to load experiments: {experimentsQuery.error.message}
-        </p>
-      )}
+        {experimentsQuery.isLoading && (
+          <p className="text-sm text-muted-foreground">Loading experiments...</p>
+        )}
 
-      {experimentsQuery.data && (
-        <ExperimentList
-          experiments={experimentsQuery.data}
-          deletingId={deletingId}
-          onDelete={(id) => {
-            setDeletingId(id);
-            deleteMutation.mutate({ id });
-          }}
-        />
-      )}
+        {experimentsQuery.error && (
+          <p className="rounded-lg border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive-foreground">
+            Failed to load experiments: {experimentsQuery.error.message}
+          </p>
+        )}
+
+        {experimentsQuery.data && (
+          <ExperimentList
+            experiments={experimentsQuery.data}
+            deletingId={deletingId}
+            onDelete={(id) => {
+              setDeletingId(id);
+              deleteMutation.mutate({ id });
+            }}
+          />
+        )}
+      </div>
     </PageLayout>
   );
 }
