@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { ExperimentList } from "@/components/experiments/ExperimentList";
-import { Plus, Search, Eye, Copy } from 'lucide-react';
+import { Plus, Search } from 'lucide-react';
 import { PageLayout } from "@/components/PageLayout";
 import { trpc } from "@/lib/trpc";
 
@@ -37,7 +37,6 @@ export default function ExperimentsPage() {
       }
     >
       <div className="space-y-4">
-        Search
         <div className="relative">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <input
@@ -62,6 +61,7 @@ export default function ExperimentsPage() {
         {experimentsQuery.data && (
           <ExperimentList
             experiments={experimentsQuery.data}
+            searchQuery={searchQuery}
             deletingId={deletingId}
             onDelete={(id) => {
               setDeletingId(id);

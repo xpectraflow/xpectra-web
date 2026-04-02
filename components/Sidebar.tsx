@@ -111,11 +111,6 @@ export function Sidebar() {
                 count={devices.length}
               />
               <SidebarItem
-                href="/datasets/shared"
-                icon={Users}
-                label="Shared with me"
-              />
-              <SidebarItem
                 href="/datasets/open"
                 icon={Globe}
                 label="Open data"

@@ -11,10 +11,16 @@ import {
 } from "@/server/routers/ownership";
 import { createTRPCRouter, protectedProcedure } from "@/server/trpc";
 
+const sensorEntrySchema = z.object({
+  sensorId: z.string().uuid(),
+  channelIndices: z.array(z.number().int()).nullable(),
+});
+
 const createExperimentInput = z.object({
   name: z.string().trim().min(2).max(120),
   description: z.string().trim().max(2000).nullish(),
   status: z.enum(["draft", "active", "archived"]).default("draft"),
+  sensors: z.array(sensorEntrySchema).optional(),
 });
 
 const experimentIdInput = z.object({
@@ -48,6 +54,9 @@ export const experimentsRouter = createTRPCRouter({
           name: input.name,
           description: input.description ?? null,
           status: input.status,
+          sensorConfig: input.sensors?.length
+            ? { sensors: input.sensors, charts: [] }
+            : null,
         })
         .returning();
 
@@ -162,5 +171,40 @@ export const experimentsRouter = createTRPCRouter({
       }
 
       return { success: true };
+    }),
+
+  duplicateExperiment: protectedProcedure
+    .input(experimentIdInput)
+    .mutation(async ({ ctx, input }) => {
+      const userId = await getOrCreateDbUser({
+        db: ctx.db,
+        ...userInfoFromSession(ctx.session),
+      });
+
+      const organizationId = await getPrimaryOrganizationIdForUser({
+        db: ctx.db,
+        userId,
+      });
+
+      const source = await assertExperimentInOrganization({
+        db: ctx.db,
+        experimentId: input.id,
+        organizationId,
+      });
+
+      const [created] = await ctx.db
+        .insert(experiments)
+        .values({
+          id: randomUUID(),
+          organizationId,
+          createdBy: userId,
+          name: `${source.name} (Copy)`,
+          description: source.description,
+          status: "draft",
+          sensorConfig: source.sensorConfig,
+        })
+        .returning();
+
+      return created;
     }),
 });
