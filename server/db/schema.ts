@@ -337,11 +337,8 @@ export const organizationsRelations = relations(organizations, ({ many }) => ({
 }));
 
 export const usersRelations = relations(users, ({ one, many }) => ({
+  /** Single relation on organisationId — duplicate one() names break org ↔ users pairing in Drizzle Studio. */
   primaryOrganization: one(organizations, {
-    fields:     [users.organisationId],
-    references: [organizations.id],
-  }),
-  org: one(organizations, {
     fields:     [users.organisationId],
     references: [organizations.id],
   }),

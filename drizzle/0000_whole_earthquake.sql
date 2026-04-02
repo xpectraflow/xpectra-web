@@ -9,6 +9,27 @@ CREATE TABLE "channels" (
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "datasets" (
+	"id" uuid PRIMARY KEY NOT NULL,
+	"experiment_id" uuid NOT NULL,
+	"name" text NOT NULL,
+	"status" text DEFAULT 'queued' NOT NULL,
+	"started_at" timestamp with time zone,
+	"ended_at" timestamp with time zone,
+	"storage_location" text DEFAULT 'timescale' NOT NULL,
+	"hypertable_name" text DEFAULT 'hyper_channel_data' NOT NULL,
+	"row_count" integer DEFAULT 0,
+	"s3_path" text,
+	"s3_bucket" text,
+	"parquet_bytes" integer,
+	"archived_at" timestamp with time zone,
+	"restored_at" timestamp with time zone,
+	"notes" text,
+	"meta" jsonb,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "experiments" (
 	"id" uuid PRIMARY KEY NOT NULL,
 	"organization_id" uuid NOT NULL,
@@ -26,27 +47,6 @@ CREATE TABLE "organizations" (
 	"name" text NOT NULL,
 	"type" text DEFAULT 'personal' NOT NULL,
 	"slug" varchar(255) NOT NULL,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
-);
---> statement-breakpoint
-CREATE TABLE "runs" (
-	"id" uuid PRIMARY KEY NOT NULL,
-	"experiment_id" uuid NOT NULL,
-	"name" text NOT NULL,
-	"status" text DEFAULT 'queued' NOT NULL,
-	"started_at" timestamp with time zone,
-	"ended_at" timestamp with time zone,
-	"storage_location" text DEFAULT 'timescale' NOT NULL,
-	"hypertable_name" text DEFAULT 'hyper_channel_data' NOT NULL,
-	"row_count" integer DEFAULT 0,
-	"s3_path" text,
-	"s3_bucket" text,
-	"parquet_bytes" integer,
-	"archived_at" timestamp with time zone,
-	"restored_at" timestamp with time zone,
-	"notes" text,
-	"meta" jsonb,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
@@ -92,18 +92,18 @@ CREATE TABLE "users" (
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-ALTER TABLE "channels" ADD CONSTRAINT "channels_dataset_id_runs_id_fk" FOREIGN KEY ("dataset_id") REFERENCES "public"."runs"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "channels" ADD CONSTRAINT "channels_dataset_id_datasets_id_fk" FOREIGN KEY ("dataset_id") REFERENCES "public"."datasets"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "channels" ADD CONSTRAINT "channels_sensor_channel_id_sensor_channels_id_fk" FOREIGN KEY ("sensor_channel_id") REFERENCES "public"."sensor_channels"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "datasets" ADD CONSTRAINT "datasets_experiment_id_experiments_id_fk" FOREIGN KEY ("experiment_id") REFERENCES "public"."experiments"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "experiments" ADD CONSTRAINT "experiments_organization_id_organizations_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organizations"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "experiments" ADD CONSTRAINT "experiments_created_by_user_id_users_id_fk" FOREIGN KEY ("created_by_user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "runs" ADD CONSTRAINT "runs_experiment_id_experiments_id_fk" FOREIGN KEY ("experiment_id") REFERENCES "public"."experiments"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "sensor_channels" ADD CONSTRAINT "sensor_channels_sensor_id_sensors_id_fk" FOREIGN KEY ("sensor_id") REFERENCES "public"."sensors"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "sensors" ADD CONSTRAINT "sensors_organisation_id_organizations_id_fk" FOREIGN KEY ("organisation_id") REFERENCES "public"."organizations"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "sensors" ADD CONSTRAINT "sensors_created_by_users_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "users" ADD CONSTRAINT "users_organisation_id_organizations_id_fk" FOREIGN KEY ("organisation_id") REFERENCES "public"."organizations"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+CREATE INDEX "datasets_experiment_idx" ON "datasets" USING btree ("experiment_id");--> statement-breakpoint
+CREATE INDEX "datasets_storage_location_idx" ON "datasets" USING btree ("storage_location");--> statement-breakpoint
+CREATE INDEX "datasets_status_idx" ON "datasets" USING btree ("status");--> statement-breakpoint
 CREATE UNIQUE INDEX "organizations_slug_key" ON "organizations" USING btree ("slug");--> statement-breakpoint
-CREATE INDEX "runs_experiment_idx" ON "runs" USING btree ("experiment_id");--> statement-breakpoint
-CREATE INDEX "runs_storage_location_idx" ON "runs" USING btree ("storage_location");--> statement-breakpoint
-CREATE INDEX "runs_status_idx" ON "runs" USING btree ("status");--> statement-breakpoint
 CREATE UNIQUE INDEX "sensor_channels_sensor_idx_unique" ON "sensor_channels" USING btree ("sensor_id","channel_index");--> statement-breakpoint
 CREATE UNIQUE INDEX "users_email_key" ON "users" USING btree ("email");
