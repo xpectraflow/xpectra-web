@@ -5,6 +5,8 @@ import { z } from "zod";
 import { organizations, users } from "@/server/db/schema";
 import { getOrCreateDbUser, userInfoFromSession } from "@/server/routers/ownership";
 import { createTRPCRouter, protectedProcedure } from "@/server/trpc";
+import { HeadBucketCommand, CreateBucketCommand } from "@aws-sdk/client-s3";
+import { s3Client } from "@/server/s3";
 
 function slugify(name: string) {
   const normalized = name
@@ -94,6 +96,14 @@ export const organizationsRouter = createTRPCRouter({
           updatedAt: new Date(),
         })
         .where(eq(users.id, userId));
+
+      try {
+        await s3Client.send(new HeadBucketCommand({ Bucket: slug }));
+      } catch (e: any) {
+        if (e.name === 'NotFound' || e.$metadata?.httpStatusCode === 404) {
+          await s3Client.send(new CreateBucketCommand({ Bucket: slug }));
+        }
+      }
 
       return createdOrganization;
     }),

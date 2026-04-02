@@ -15,6 +15,7 @@ import {
   MessageCircle,
   LogOut,
   FlaskConical,
+  Activity,
 } from 'lucide-react';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
@@ -97,6 +98,7 @@ export function Sidebar() {
               <div className="mb-2 px-3 text-xs font-medium uppercase tracking-wider text-sidebar-foreground">
                 Datasets
               </div>
+              <SidebarItem href="/sensors" icon={Activity} label="Sensors" />
               <SidebarItem
                 href="/datasets"
                 icon={Database}

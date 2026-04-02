@@ -11,6 +11,8 @@
     "db:migrate": "drizzle-kit migrate"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1022.0",
+    "@aws-sdk/s3-request-presigner": "^3.1022.0",
     "@grpc/grpc-js": "^1.14.3",
     "@grpc/proto-loader": "^0.8.0",
     "@tanstack/react-query": "^5.95.2",
@@ -19,16 +21,21 @@
     "@trpc/server": "^11.16.0",
     "@types/pg": "^8.20.0",
     "bcryptjs": "^3.0.3",
+    "clsx": "^2.1.1",
     "drizzle-orm": "^0.45.2",
     "echarts": "^6.0.0",
     "echarts-for-react": "^3.0.6",
+    "framer-motion": "^12.38.0",
     "lucide-react": "^0.562.0",
     "next": "16.1.4",
     "next-auth": "^4.24.13",
+    "next-themes": "^0.4.6",
     "pg": "^8.20.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
+    "sonner": "^2.0.7",
     "superjson": "^2.2.6",
+    "tailwind-merge": "^3.5.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {
