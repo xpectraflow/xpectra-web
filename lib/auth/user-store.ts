@@ -7,7 +7,7 @@ export type StoredUser = {
   name: string;
   email: string;
   passwordHash: string;
-  primaryOrganizationId?: string | null;
+  organisationId?: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -29,7 +29,7 @@ function mapUserRow(row: typeof users.$inferSelect): StoredUser {
     name: row.name,
     email: row.email,
     passwordHash: row.passwordHash,
-    primaryOrganizationId: row.primaryOrganizationId ?? null,
+    organisationId: row.organisationId ?? null,
     createdAt,
     updatedAt,
   };

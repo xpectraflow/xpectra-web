@@ -47,17 +47,17 @@ export async function getPrimaryOrganizationIdForUser(input: {
 }) {
   const user = await input.db.query.users.findFirst({
     where: (userRow, { eq: eqOperator }) => eqOperator(userRow.id, input.userId),
-    columns: { primaryOrganizationId: true },
+    columns: { organisationId: true },
   });
 
-  if (!user || !user.primaryOrganizationId) {
+  if (!user || !user.organisationId) {
     throw new TRPCError({
       code: "FORBIDDEN",
       message: "No organization found for the current user.",
     });
   }
 
-  return user.primaryOrganizationId;
+  return user.organisationId;
 }
 
 export async function assertExperimentInOrganization(input: {

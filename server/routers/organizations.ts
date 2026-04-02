@@ -6,6 +6,18 @@ import { organizations, users } from "@/server/db/schema";
 import { getOrCreateDbUser, userInfoFromSession } from "@/server/routers/ownership";
 import { createTRPCRouter, protectedProcedure } from "@/server/trpc";
 
+function slugify(name: string) {
+  const normalized = name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)+/g, "")
+    .slice(0, 40);
+
+  const randomPart = randomUUID().replace(/-/g, "").slice(0, 5);
+
+  return `${normalized || "org"}-${randomPart}`;
+}
+
 const createOrganizationInput = z.object({
   name: z.string().trim().min(2).max(120),
   type: z.enum(["personal", "startup", "educational", "company"]),
@@ -21,16 +33,16 @@ export const organizationsRouter = createTRPCRouter({
     const userRow = await ctx.db.query.users.findFirst({
       where: (userRow, { eq: eqOperator }) =>
         eqOperator(userRow.id, userId),
-      columns: { primaryOrganizationId: true },
+      columns: { organisationId: true },
     });
 
-    if (!userRow?.primaryOrganizationId) {
+    if (!userRow?.organisationId) {
       return [];
     }
 
     const organization = await ctx.db.query.organizations.findFirst({
       where: (organizationRow, { eq: eqOperator }) =>
-        eqOperator(organizationRow.id, userRow.primaryOrganizationId),
+        eqOperator(organizationRow.id, userRow.organisationId),
       columns: {
         id: true,
         name: true,
@@ -51,10 +63,10 @@ export const organizationsRouter = createTRPCRouter({
 
       const existingUser = await ctx.db.query.users.findFirst({
         where: (row, { eq }) => eq(row.id, userId),
-        columns: { primaryOrganizationId: true },
+        columns: { organisationId: true },
       });
 
-      if (existingUser?.primaryOrganizationId) {
+      if (existingUser?.organisationId) {
         throw new TRPCError({
           code: "FORBIDDEN",
           message: "You are already attached to an organization.",
@@ -63,19 +75,22 @@ export const organizationsRouter = createTRPCRouter({
 
       const organizationId = randomUUID();
 
+      const slug = slugify(input.name);
+
       const [createdOrganization] = await ctx.db
         .insert(organizations)
         .values({
           id: organizationId,
           name: input.name,
           type: input.type,
+          slug,
         })
         .returning();
 
       await ctx.db
         .update(users)
         .set({
-          primaryOrganizationId: organizationId,
+          organisationId: organizationId,
           updatedAt: new Date(),
         })
         .where(eq(users.id, userId));
