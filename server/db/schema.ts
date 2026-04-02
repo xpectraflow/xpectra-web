@@ -233,18 +233,18 @@ export const experiments = pgTable("experiments", {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Runs
+// Datasets
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
  * One timed execution of an experiment.
- * The Go service streams samples into hyper_channel_data keyed by run_id.
+ * The Go service streams samples into hyper_channel_data keyed by dataset_id.
  *
  * Storage state machine:
  *   timescale ──(3 days)──► archiving ──► s3
  *   s3 ──(user request)──► restoring ──► timescale
  */
-export const runs = pgTable("runs", {
+export const datasets = pgTable("datasets", {
     id:           uuid("id").primaryKey(),
     experimentId: uuid("experiment_id")
                     .notNull()
@@ -252,7 +252,7 @@ export const runs = pgTable("runs", {
     name: text("name").notNull(),
 
     /**
-     * Run lifecycle.
+     * Dataset lifecycle.
      * Values: 'queued' | 'running' | 'completed' | 'failed' | 'stopped'
      */
     status: text("status").notNull().default("queued"),
@@ -269,7 +269,7 @@ export const runs = pgTable("runs", {
 
     /**
      * Usually 'hyper_channel_data' (shared table).
-     * Go may create per-run tables hyper_{run_id} for very high-throughput runs.
+     * Go may create per-dataset tables hyper_{dataset_id} for very high-throughput datasets.
      */
     hypertableName: text("hypertable_name").notNull().default("hyper_channel_data"),
 
@@ -277,7 +277,7 @@ export const runs = pgTable("runs", {
     rowCount: integer("row_count").default(0),
 
     // ── s3 / Parquet ──────────────────────────────────────────────────
-    /** Populated once archived. e.g. runs/{organisation_id}/{experiment_id}/{run_id}/data.parquet */
+    /** Populated once archived. e.g. datasets/{organisation_id}/{experiment_id}/{dataset_id}/data.parquet */
     s3Path:    text("s3_path"),
     s3Bucket:  text("s3_bucket"),
     /** Parquet file size in bytes (informational). */
@@ -292,29 +292,29 @@ export const runs = pgTable("runs", {
     ...timestamps,
   },
   (t) => ({
-    runsExperimentIdx:    index("runs_experiment_idx").on(t.experimentId),
-    runsStorageIdx:       index("runs_storage_location_idx").on(t.storageLocation),
-    runsStatusIdx:        index("runs_status_idx").on(t.status),
+    datasetsExperimentIdx:    index("datasets_experiment_idx").on(t.experimentId),
+    datasetsStorageIdx:       index("datasets_storage_location_idx").on(t.storageLocation),
+    datasetsStatusIdx:        index("datasets_status_idx").on(t.status),
   }),
 );
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Channels  (from original schema — per-run channel metadata)
+// Channels  (from original schema — per-dataset channel metadata)
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Lightweight channel descriptor attached to a run.
+ * Lightweight channel descriptor attached to a dataset.
  * Mirrors what sensor_channels holds at the sensor level, but scoped to
- * a specific run — useful for storing any run-specific overrides or
+ * a specific dataset — useful for storing any dataset-specific overrides or
  * for the Go service to register which channels were actually active.
  *
  * dataType values: 'float' | 'int' | 'bool' | 'string'
  */
 export const channels = pgTable("channels", {
   id:    uuid("id").primaryKey(),
-  runId: uuid("run_id")
+  datasetId: uuid("dataset_id")
            .notNull()
-           .references(() => runs.id, { onDelete: "cascade" }),
+           .references(() => datasets.id, { onDelete: "cascade" }),
   /** Links back to the source sensor channel (nullable — custom channels have no sensor). */
   sensorChannelId: uuid("sensor_channel_id").references(
     () => sensorChannels.id,
@@ -378,21 +378,21 @@ export const experimentsRelations = relations(experiments, ({ one, many }) => ({
     fields:     [experiments.createdBy],
     references: [users.id],
   }),
-  runs: many(runs),
+  datasets: many(datasets),
 }));
 
-export const runsRelations = relations(runs, ({ one, many }) => ({
+export const datasetsRelations = relations(datasets, ({ one, many }) => ({
   experiment: one(experiments, {
-    fields:     [runs.experimentId],
+    fields:     [datasets.experimentId],
     references: [experiments.id],
   }),
   channels: many(channels),
 }));
 
 export const channelsRelations = relations(channels, ({ one }) => ({
-  run: one(runs, {
-    fields:     [channels.runId],
-    references: [runs.id],
+  dataset: one(datasets, {
+    fields:     [channels.datasetId],
+    references: [datasets.id],
   }),
   sensorChannel: one(sensorChannels, {
     fields:     [channels.sensorChannelId],
@@ -408,14 +408,14 @@ export const channelsRelations = relations(channels, ({ one }) => ({
 //
 // CREATE TABLE hyper_channel_data (
 //   time              TIMESTAMPTZ      NOT NULL,
-//   run_id            UUID             NOT NULL,   -- → runs.id
+//   dataset_id            UUID             NOT NULL,   -- → datasets.id
 //   channel_id        UUID,                        -- → channels.id (nullable for raw streams)
 //   sensor_id         UUID             NOT NULL,   -- → sensors.id
 //   channel_index     SMALLINT         NOT NULL,
 //   raw_value         DOUBLE PRECISION,
 //   calibrated_value  DOUBLE PRECISION,
 //   is_valid          BOOLEAN          NOT NULL DEFAULT TRUE,
-//   PRIMARY KEY (time, run_id, channel_index)
+//   PRIMARY KEY (time, dataset_id, channel_index)
 // );
 //
 // SELECT create_hypertable('hyper_channel_data', 'time',
@@ -424,7 +424,7 @@ export const channelsRelations = relations(channels, ({ one }) => ({
 // ALTER TABLE hyper_channel_data SET (
 //   timescaledb.compress,
 //   timescaledb.compress_orderby   = 'time DESC',
-//   timescaledb.compress_segmentby = 'run_id, sensor_id'
+//   timescaledb.compress_segmentby = 'dataset_id, sensor_id'
 // );
 // SELECT add_compression_policy('hyper_channel_data',
 //   compress_after => INTERVAL '3 days');

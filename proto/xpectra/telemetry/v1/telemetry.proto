@@ -28,7 +28,7 @@ message TelemetryPoint {
 
 message IngestRequest {
   string experiment_id = 1;
-  string run_id = 2;
+  string dataset_id = 2;
   repeated TelemetryPoint points = 3;
 }
 
@@ -49,12 +49,12 @@ message TelemetryStreamChunk {
 
 message StreamSessionHeader {
   string experiment_id = 1;
-  string run_id = 2;
+  string dataset_id = 2;
 }
 
 message QueryRequest {
   string experiment_id = 1;
-  string run_id = 2;
+  string dataset_id = 2;
   repeated string channel_ids = 3;
   google.protobuf.Timestamp from = 4;
   google.protobuf.Timestamp to = 5;

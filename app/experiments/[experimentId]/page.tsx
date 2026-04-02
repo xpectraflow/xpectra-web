@@ -5,8 +5,8 @@ import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
 import { ExperimentDetails } from "@/components/experiments/ExperimentDetails";
 import { PageLayout } from "@/components/PageLayout";
-import { RunForm } from "@/components/runs/RunForm";
-import { RunList } from "@/components/runs/RunList";
+import { DatasetForm } from "@/components/datasets/DatasetForm";
+import { DatasetList } from "@/components/datasets/DatasetList";
 import { trpc } from "@/lib/trpc";
 
 export default function ExperimentDetailsPage() {
@@ -14,7 +14,7 @@ export default function ExperimentDetailsPage() {
   const router = useRouter();
   const utils = trpc.useUtils();
   const [isDeleting, setIsDeleting] = useState(false);
-  const [deletingRunId, setDeletingRunId] = useState<string | null>(null);
+  const [deletingDatasetId, setDeletingDatasetId] = useState<string | null>(null);
 
   const experimentQuery = trpc.experiments.getExperimentById.useQuery({
     id: params.experimentId,
@@ -30,23 +30,23 @@ export default function ExperimentDetailsPage() {
     },
   });
 
-  const runsQuery = trpc.runs.getRuns.useQuery({
+  const datasetsQuery = trpc.datasets.getDatasets.useQuery({
     experimentId: params.experimentId,
   });
 
-  const createRunMutation = trpc.runs.createRun.useMutation({
+  const createDatasetMutation = trpc.datasets.createDataset.useMutation({
     onSuccess: async () => {
-      await utils.runs.getRuns.invalidate({ experimentId: params.experimentId });
+      await utils.datasets.getDatasets.invalidate({ experimentId: params.experimentId });
     },
   });
 
-  const deleteRunMutation = trpc.runs.deleteRun.useMutation({
+  const deleteDatasetMutation = trpc.datasets.deleteDataset.useMutation({
     onSuccess: async () => {
-      await utils.runs.getRuns.invalidate({ experimentId: params.experimentId });
-      setDeletingRunId(null);
+      await utils.datasets.getDatasets.invalidate({ experimentId: params.experimentId });
+      setDeletingDatasetId(null);
     },
     onError: () => {
-      setDeletingRunId(null);
+      setDeletingDatasetId(null);
     },
   });
 
@@ -85,13 +85,13 @@ export default function ExperimentDetailsPage() {
           />
 
           <section className="space-y-4">
-            <h2 className="text-lg font-semibold text-white">Runs</h2>
+            <h2 className="text-lg font-semibold text-white">Datasets</h2>
 
-            <RunForm
-              submitLabel="Create run"
-              isSubmitting={createRunMutation.isPending}
+            <DatasetForm
+              submitLabel="Create dataset"
+              isSubmitting={createDatasetMutation.isPending}
               onSubmit={async (values) => {
-                await createRunMutation.mutateAsync({
+                await createDatasetMutation.mutateAsync({
                   experimentId: params.experimentId,
                   name: values.name,
                   status: values.status,
@@ -99,32 +99,32 @@ export default function ExperimentDetailsPage() {
               }}
             />
 
-            {createRunMutation.error && (
+            {createDatasetMutation.error && (
               <p className="rounded-lg border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive-foreground">
-                Failed to create run: {createRunMutation.error.message}
+                Failed to create dataset: {createDatasetMutation.error.message}
               </p>
             )}
 
-            {runsQuery.isLoading && (
-              <p className="text-sm text-muted-foreground">Loading runs...</p>
+            {datasetsQuery.isLoading && (
+              <p className="text-sm text-muted-foreground">Loading datasets...</p>
             )}
 
-            {runsQuery.error && (
+            {datasetsQuery.error && (
               <p className="rounded-lg border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive-foreground">
-                Failed to load runs: {runsQuery.error.message}
+                Failed to load datasets: {datasetsQuery.error.message}
               </p>
             )}
 
-            {runsQuery.data && (
-              <RunList
+            {datasetsQuery.data && (
+              <DatasetList
                 experimentId={params.experimentId}
-                runs={runsQuery.data}
-                deletingId={deletingRunId}
-                onDelete={(runId) => {
-                  setDeletingRunId(runId);
-                  deleteRunMutation.mutate({
+                datasets={datasetsQuery.data}
+                deletingId={deletingDatasetId}
+                onDelete={(datasetId) => {
+                  setDeletingDatasetId(datasetId);
+                  deleteDatasetMutation.mutate({
                     experimentId: params.experimentId,
-                    id: runId,
+                    id: datasetId,
                   });
                 }}
               />

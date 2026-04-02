@@ -81,7 +81,7 @@ export default function CreateExperimentPage() {
   return (
     <PageLayout
       title="Create Experiment"
-      description="Group sensors into an experiment to capture telemetry runs."
+      description="Group sensors into an experiment to capture telemetry datasets."
     >
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Basic Details */}

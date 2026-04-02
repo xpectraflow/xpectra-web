@@ -4,7 +4,7 @@ import { and, asc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { channels } from "@/server/db/schema";
 import {
-  assertRunInOrganization,
+  assertDatasetInOrganization,
   getOrCreateDbUser,
   getPrimaryOrganizationIdForUser,
   userInfoFromSession,
@@ -13,7 +13,7 @@ import { createTRPCRouter, protectedProcedure } from "@/server/trpc";
 
 const channelScopeInput = z.object({
   experimentId: z.uuid(),
-  runId: z.uuid(),
+  datasetId: z.uuid(),
 });
 
 const createChannelInput = channelScopeInput.extend({
@@ -46,10 +46,10 @@ export const channelsRouter = createTRPCRouter({
       userId,
     });
 
-    await assertRunInOrganization({
+    await assertDatasetInOrganization({
       db: ctx.db,
       experimentId: input.experimentId,
-      runId: input.runId,
+      datasetId: input.datasetId,
       organizationId,
     });
 
@@ -57,7 +57,7 @@ export const channelsRouter = createTRPCRouter({
         .insert(channels)
         .values({
           id: randomUUID(),
-          runId: input.runId,
+          datasetId: input.datasetId,
           name: input.name,
           unit: input.unit ?? null,
           dataType: input.dataType,
@@ -79,17 +79,17 @@ export const channelsRouter = createTRPCRouter({
       userId,
     });
 
-    await assertRunInOrganization({
+    await assertDatasetInOrganization({
       db: ctx.db,
       experimentId: input.experimentId,
-      runId: input.runId,
+      datasetId: input.datasetId,
       organizationId,
     });
 
       return ctx.db
         .select()
         .from(channels)
-        .where(eq(channels.runId, input.runId))
+        .where(eq(channels.datasetId, input.datasetId))
         .orderBy(asc(channels.name));
     }),
 
@@ -105,10 +105,10 @@ export const channelsRouter = createTRPCRouter({
       userId,
     });
 
-    await assertRunInOrganization({
+    await assertDatasetInOrganization({
       db: ctx.db,
       experimentId: input.experimentId,
-      runId: input.runId,
+      datasetId: input.datasetId,
       organizationId,
     });
 
@@ -119,7 +119,7 @@ export const channelsRouter = createTRPCRouter({
           unit: input.unit ?? null,
           dataType: input.dataType,
         })
-        .where(and(eq(channels.id, input.id), eq(channels.runId, input.runId)))
+        .where(and(eq(channels.id, input.id), eq(channels.datasetId, input.datasetId)))
         .returning();
 
       if (!updatedChannel) {
@@ -141,16 +141,16 @@ export const channelsRouter = createTRPCRouter({
       userId,
     });
 
-    await assertRunInOrganization({
+    await assertDatasetInOrganization({
       db: ctx.db,
       experimentId: input.experimentId,
-      runId: input.runId,
+      datasetId: input.datasetId,
       organizationId,
     });
 
       const [deletedChannel] = await ctx.db
         .delete(channels)
-        .where(and(eq(channels.id, input.id), eq(channels.runId, input.runId)))
+        .where(and(eq(channels.id, input.id), eq(channels.datasetId, input.datasetId)))
         .returning({ id: channels.id });
 
       if (!deletedChannel) {

@@ -6,8 +6,8 @@ import { useMemo, useState } from "react";
 import { ChannelForm } from "@/components/channels/ChannelForm";
 import { ChannelList } from "@/components/channels/ChannelList";
 import { PageLayout } from "@/components/PageLayout";
-import { RunDetails } from "@/components/runs/RunDetails";
-import { RunForm } from "@/components/runs/RunForm";
+import { DatasetDetails } from "@/components/datasets/DatasetDetails";
+import { DatasetForm } from "@/components/datasets/DatasetForm";
 import { ChannelSelector } from "@/components/telemetry/ChannelSelector";
 import { MetricsPanel } from "@/components/telemetry/MetricsPanel";
 import { TelemetryChart } from "@/components/telemetry/TelemetryChart";
@@ -31,22 +31,22 @@ function rangeForPreset(preset: TimeRangePreset) {
   };
 }
 
-export default function RunDetailsPage() {
-  const params = useParams<{ experimentId: string; runId: string }>();
+export default function DatasetDetailsPage() {
+  const params = useParams<{ experimentId: string; datasetId: string }>();
   const utils = trpc.useUtils();
   const [deletingChannelId, setDeletingChannelId] = useState<string | null>(null);
   const [selectedPreset, setSelectedPreset] = useState<TimeRangePreset>("1h");
   const [telemetryRange, setTelemetryRange] = useState(rangeForPreset("1h"));
   const [selectedChannelIds, setSelectedChannelIds] = useState<string[]>([]);
 
-  const runQuery = trpc.runs.getRunById.useQuery({
+  const datasetQuery = trpc.datasets.getDatasetById.useQuery({
     experimentId: params.experimentId,
-    id: params.runId,
+    id: params.datasetId,
   });
 
   const channelsQuery = trpc.channels.getChannels.useQuery({
     experimentId: params.experimentId,
-    runId: params.runId,
+    datasetId: params.datasetId,
   });
 
   const effectiveSelectedChannelIds = useMemo(() => {
@@ -64,7 +64,7 @@ export default function RunDetailsPage() {
   const telemetryQuery = trpc.telemetry.getTelemetryData.useQuery(
     {
       experimentId: params.experimentId,
-      runId: params.runId,
+      datasetId: params.datasetId,
       channelIds: effectiveSelectedChannelIds,
       range: telemetryRange,
     },
@@ -73,13 +73,13 @@ export default function RunDetailsPage() {
     },
   );
 
-  const updateRunMutation = trpc.runs.updateRun.useMutation({
+  const updateDatasetMutation = trpc.datasets.updateDataset.useMutation({
     onSuccess: async () => {
-      await utils.runs.getRunById.invalidate({
+      await utils.datasets.getDatasetById.invalidate({
         experimentId: params.experimentId,
-        id: params.runId,
+        id: params.datasetId,
       });
-      await utils.runs.getRuns.invalidate({ experimentId: params.experimentId });
+      await utils.datasets.getDatasets.invalidate({ experimentId: params.experimentId });
     },
   });
 
@@ -87,7 +87,7 @@ export default function RunDetailsPage() {
     onSuccess: async () => {
       await utils.channels.getChannels.invalidate({
         experimentId: params.experimentId,
-        runId: params.runId,
+        datasetId: params.datasetId,
       });
     },
   });
@@ -96,7 +96,7 @@ export default function RunDetailsPage() {
     onSuccess: async () => {
       await utils.channels.getChannels.invalidate({
         experimentId: params.experimentId,
-        runId: params.runId,
+        datasetId: params.datasetId,
       });
       setDeletingChannelId(null);
     },
@@ -107,8 +107,8 @@ export default function RunDetailsPage() {
 
   return (
     <PageLayout
-      title="Run details"
-      description="Manage run state and channel definitions."
+      title="Dataset details"
+      description="Manage dataset state and channel definitions."
       action={
         <Link
           href={`/experiments/${params.experimentId}`}
@@ -118,36 +118,36 @@ export default function RunDetailsPage() {
         </Link>
       }
     >
-      {runQuery.isLoading && <p className="text-sm text-muted-foreground">Loading run...</p>}
+      {datasetQuery.isLoading && <p className="text-sm text-muted-foreground">Loading dataset...</p>}
 
-      {runQuery.error && (
+      {datasetQuery.error && (
         <p className="rounded-lg border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive-foreground">
-          Failed to load run: {runQuery.error.message}
+          Failed to load dataset: {datasetQuery.error.message}
         </p>
       )}
 
-      {runQuery.data && (
+      {datasetQuery.data && (
         <div className="space-y-6">
-          <RunDetails run={runQuery.data} />
+          <DatasetDetails dataset={datasetQuery.data} />
 
-          <RunForm
-            submitLabel="Update run"
-            isSubmitting={updateRunMutation.isPending}
+          <DatasetForm
+            submitLabel="Update dataset"
+            isSubmitting={updateDatasetMutation.isPending}
             initialValues={{
-              name: runQuery.data.name,
-              status: runQuery.data.status as "queued" | "running" | "completed" | "failed",
+              name: datasetQuery.data.name,
+              status: datasetQuery.data.status as "queued" | "running" | "completed" | "failed",
             }}
             onSubmit={async (values) => {
-              await updateRunMutation.mutateAsync({
+              await updateDatasetMutation.mutateAsync({
                 experimentId: params.experimentId,
-                id: params.runId,
+                id: params.datasetId,
                 name: values.name,
                 status: values.status,
-                startedAt: runQuery.data.startedAt
-                  ? new Date(runQuery.data.startedAt).toISOString()
+                startedAt: datasetQuery.data.startedAt
+                  ? new Date(datasetQuery.data.startedAt).toISOString()
                   : null,
-                endedAt: runQuery.data.endedAt
-                  ? new Date(runQuery.data.endedAt).toISOString()
+                endedAt: datasetQuery.data.endedAt
+                  ? new Date(datasetQuery.data.endedAt).toISOString()
                   : null,
               });
             }}
@@ -162,7 +162,7 @@ export default function RunDetailsPage() {
               onSubmit={async (values) => {
                 await createChannelMutation.mutateAsync({
                   experimentId: params.experimentId,
-                  runId: params.runId,
+                  datasetId: params.datasetId,
                   name: values.name,
                   unit: values.unit || null,
                   dataType: values.dataType,
@@ -188,7 +188,7 @@ export default function RunDetailsPage() {
                   setDeletingChannelId(channelId);
                   deleteChannelMutation.mutate({
                     experimentId: params.experimentId,
-                    runId: params.runId,
+                    datasetId: params.datasetId,
                     id: channelId,
                   });
                 }}

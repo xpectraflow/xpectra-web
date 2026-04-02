@@ -1,6 +1,6 @@
 CREATE TABLE "channels" (
 	"id" uuid PRIMARY KEY NOT NULL,
-	"run_id" uuid NOT NULL,
+	"dataset_id" uuid NOT NULL,
 	"sensor_channel_id" uuid,
 	"name" text NOT NULL,
 	"unit" text,
@@ -92,7 +92,7 @@ CREATE TABLE "users" (
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-ALTER TABLE "channels" ADD CONSTRAINT "channels_run_id_runs_id_fk" FOREIGN KEY ("run_id") REFERENCES "public"."runs"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "channels" ADD CONSTRAINT "channels_dataset_id_runs_id_fk" FOREIGN KEY ("dataset_id") REFERENCES "public"."runs"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "channels" ADD CONSTRAINT "channels_sensor_channel_id_sensor_channels_id_fk" FOREIGN KEY ("sensor_channel_id") REFERENCES "public"."sensor_channels"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "experiments" ADD CONSTRAINT "experiments_organization_id_organizations_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organizations"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "experiments" ADD CONSTRAINT "experiments_created_by_user_id_users_id_fk" FOREIGN KEY ("created_by_user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint

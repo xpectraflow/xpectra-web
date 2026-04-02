@@ -2,15 +2,15 @@
 
 const automations = [
   {
-    name: 'Run validation when new device is added',
-    trigger: 'Device created',
+    name: 'Run validation when new dataset is added',
+    trigger: 'Dataset created',
     action: 'Run "Validate Sensor Schema"',
     status: 'Enabled',
   },
   {
-    name: 'Pause jobs on excessive data volume',
+    name: 'Pause datasets on excessive data volume',
     trigger: 'Data volume threshold exceeded',
-    action: 'Pause affected jobs',
+    action: 'Pause affected datasets',
     status: 'Disabled',
   },
 ];

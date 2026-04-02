@@ -15,7 +15,7 @@ type ChannelListProps = {
 
 export function ChannelList({ channels, deletingId, onDelete }: ChannelListProps) {
   if (channels.length === 0) {
-    return <p className="text-sm text-muted-foreground">No channels configured for this run.</p>;
+    return <p className="text-sm text-muted-foreground">No channels configured for this dataset.</p>;
   }
 
   return (

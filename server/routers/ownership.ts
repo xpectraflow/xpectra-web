@@ -80,10 +80,10 @@ export async function assertExperimentInOrganization(input: {
   return experiment;
 }
 
-export async function assertRunInOrganization(input: {
+export async function assertDatasetInOrganization(input: {
   db: (typeof import("@/server/db"))["db"];
   experimentId: string;
-  runId: string;
+  datasetId: string;
   organizationId: string;
 }) {
   await assertExperimentInOrganization({
@@ -92,17 +92,17 @@ export async function assertRunInOrganization(input: {
     organizationId: input.organizationId,
   });
 
-  const run = await input.db.query.runs.findFirst({
-    where: (runRow, { and: andOperator, eq: eqOperator }) =>
+  const dataset = await input.db.query.datasets.findFirst({
+    where: (datasetRow, { and: andOperator, eq: eqOperator }) =>
       andOperator(
-        eqOperator(runRow.id, input.runId),
-        eqOperator(runRow.experimentId, input.experimentId),
+        eqOperator(datasetRow.id, input.datasetId),
+        eqOperator(datasetRow.experimentId, input.experimentId),
       ),
   });
 
-  if (!run) {
+  if (!dataset) {
     throw new TRPCError({ code: "NOT_FOUND" });
   }
 
-  return run;
+  return dataset;
 }

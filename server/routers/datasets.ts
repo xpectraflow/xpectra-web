@@ -2,40 +2,40 @@ import { randomUUID } from "crypto";
 import { TRPCError } from "@trpc/server";
 import { and, desc, eq } from "drizzle-orm";
 import { z } from "zod";
-import { runs } from "@/server/db/schema";
+import { datasets } from "@/server/db/schema";
 import {
   assertExperimentInOrganization,
-  assertRunInOrganization,
+  assertDatasetInOrganization,
   getOrCreateDbUser,
   getPrimaryOrganizationIdForUser,
   userInfoFromSession,
 } from "@/server/routers/ownership";
 import { createTRPCRouter, protectedProcedure } from "@/server/trpc";
 
-const runStatusSchema = z.enum(["queued", "running", "completed", "failed"]);
+const datasetStatusSchema = z.enum(["queued", "running", "completed", "failed"]);
 
-const runScopeInput = z.object({
+const datasetScopeInput = z.object({
   experimentId: z.uuid(),
 });
 
-const createRunInput = runScopeInput.extend({
+const createDatasetInput = datasetScopeInput.extend({
   name: z.string().trim().min(2).max(120),
-  status: runStatusSchema.default("queued"),
+  status: datasetStatusSchema.default("queued"),
 });
 
-const runIdInput = runScopeInput.extend({
+const datasetIdInput = datasetScopeInput.extend({
   id: z.uuid(),
 });
 
-const updateRunInput = runIdInput.extend({
+const updateDatasetInput = datasetIdInput.extend({
   name: z.string().trim().min(2).max(120),
-  status: runStatusSchema,
+  status: datasetStatusSchema,
   startedAt: z.iso.datetime().nullish(),
   endedAt: z.iso.datetime().nullish(),
 });
 
-export const runsRouter = createTRPCRouter({
-  createRun: protectedProcedure.input(createRunInput).mutation(async ({ ctx, input }) => {
+export const datasetsRouter = createTRPCRouter({
+  createDataset: protectedProcedure.input(createDatasetInput).mutation(async ({ ctx, input }) => {
     const userId = await getOrCreateDbUser({
       db: ctx.db,
       ...userInfoFromSession(ctx.session),
@@ -51,8 +51,8 @@ export const runsRouter = createTRPCRouter({
       organizationId,
     });
 
-    const [createdRun] = await ctx.db
-      .insert(runs)
+    const [createdDataset] = await ctx.db
+      .insert(datasets)
       .values({
         id: randomUUID(),
         experimentId: input.experimentId,
@@ -61,10 +61,10 @@ export const runsRouter = createTRPCRouter({
       })
       .returning();
 
-    return createdRun;
+    return createdDataset;
   }),
 
-  getRuns: protectedProcedure.input(runScopeInput).query(async ({ ctx, input }) => {
+  getDatasets: protectedProcedure.input(datasetScopeInput).query(async ({ ctx, input }) => {
     const userId = await getOrCreateDbUser({
       db: ctx.db,
       ...userInfoFromSession(ctx.session),
@@ -82,12 +82,12 @@ export const runsRouter = createTRPCRouter({
 
     return ctx.db
       .select()
-      .from(runs)
-      .where(eq(runs.experimentId, input.experimentId))
-      .orderBy(desc(runs.createdAt));
+      .from(datasets)
+      .where(eq(datasets.experimentId, input.experimentId))
+      .orderBy(desc(datasets.createdAt));
   }),
 
-  getRunById: protectedProcedure.input(runIdInput).query(async ({ ctx, input }) => {
+  getDatasetById: protectedProcedure.input(datasetIdInput).query(async ({ ctx, input }) => {
     const userId = await getOrCreateDbUser({
       db: ctx.db,
       ...userInfoFromSession(ctx.session),
@@ -97,29 +97,29 @@ export const runsRouter = createTRPCRouter({
       userId,
     });
 
-    await assertRunInOrganization({
+    await assertDatasetInOrganization({
       db: ctx.db,
       experimentId: input.experimentId,
-      runId: input.id,
+      datasetId: input.id,
       organizationId,
     });
 
-    const run = await ctx.db.query.runs.findFirst({
-      where: (runRow, { and: andOperator, eq: eqOperator }) =>
+    const dataset = await ctx.db.query.datasets.findFirst({
+      where: (datasetRow, { and: andOperator, eq: eqOperator }) =>
         andOperator(
-          eqOperator(runRow.id, input.id),
-          eqOperator(runRow.experimentId, input.experimentId),
+          eqOperator(datasetRow.id, input.id),
+          eqOperator(datasetRow.experimentId, input.experimentId),
         ),
     });
 
-    if (!run) {
+    if (!dataset) {
       throw new TRPCError({ code: "NOT_FOUND" });
     }
 
-    return run;
+    return dataset;
   }),
 
-  updateRun: protectedProcedure.input(updateRunInput).mutation(async ({ ctx, input }) => {
+  updateDataset: protectedProcedure.input(updateDatasetInput).mutation(async ({ ctx, input }) => {
     const userId = await getOrCreateDbUser({
       db: ctx.db,
       ...userInfoFromSession(ctx.session),
@@ -129,32 +129,32 @@ export const runsRouter = createTRPCRouter({
       userId,
     });
 
-    await assertRunInOrganization({
+    await assertDatasetInOrganization({
       db: ctx.db,
       experimentId: input.experimentId,
-      runId: input.id,
+      datasetId: input.id,
       organizationId,
     });
 
-    const [updatedRun] = await ctx.db
-      .update(runs)
+    const [updatedDataset] = await ctx.db
+      .update(datasets)
       .set({
         name: input.name,
         status: input.status,
         startedAt: input.startedAt ? new Date(input.startedAt) : null,
         endedAt: input.endedAt ? new Date(input.endedAt) : null,
       })
-      .where(and(eq(runs.id, input.id), eq(runs.experimentId, input.experimentId)))
+      .where(and(eq(datasets.id, input.id), eq(datasets.experimentId, input.experimentId)))
       .returning();
 
-    if (!updatedRun) {
+    if (!updatedDataset) {
       throw new TRPCError({ code: "NOT_FOUND" });
     }
 
-    return updatedRun;
+    return updatedDataset;
   }),
 
-  deleteRun: protectedProcedure.input(runIdInput).mutation(async ({ ctx, input }) => {
+  deleteDataset: protectedProcedure.input(datasetIdInput).mutation(async ({ ctx, input }) => {
     const userId = await getOrCreateDbUser({
       db: ctx.db,
       ...userInfoFromSession(ctx.session),
@@ -164,19 +164,19 @@ export const runsRouter = createTRPCRouter({
       userId,
     });
 
-    await assertRunInOrganization({
+    await assertDatasetInOrganization({
       db: ctx.db,
       experimentId: input.experimentId,
-      runId: input.id,
+      datasetId: input.id,
       organizationId,
     });
 
-    const [deletedRun] = await ctx.db
-      .delete(runs)
-      .where(and(eq(runs.id, input.id), eq(runs.experimentId, input.experimentId)))
-      .returning({ id: runs.id });
+    const [deletedDataset] = await ctx.db
+      .delete(datasets)
+      .where(and(eq(datasets.id, input.id), eq(datasets.experimentId, input.experimentId)))
+      .returning({ id: datasets.id });
 
-    if (!deletedRun) {
+    if (!deletedDataset) {
       throw new TRPCError({ code: "NOT_FOUND" });
     }
 

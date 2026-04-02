@@ -54,7 +54,7 @@ export default function OrganizationSetupPage() {
     >
       <div className="max-w-3xl rounded-2xl border border-border bg-card/60 p-6 shadow-lg shadow-black/20">
         <p className="text-sm text-muted-foreground">
-          Organizations group clusters, datasets, runs and channels. Only members
+          Organizations group clusters, datasets and channels. Only members
           of an organization may access what it owns.
         </p>
 

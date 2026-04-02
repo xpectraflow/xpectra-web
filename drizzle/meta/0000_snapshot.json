@@ -14,8 +14,8 @@
           "primaryKey": true,
           "notNull": true
         },
-        "run_id": {
-          "name": "run_id",
+        "dataset_id": {
+          "name": "dataset_id",
           "type": "uuid",
           "primaryKey": false,
           "notNull": true
@@ -62,12 +62,12 @@
       },
       "indexes": {},
       "foreignKeys": {
-        "channels_run_id_runs_id_fk": {
-          "name": "channels_run_id_runs_id_fk",
+        "channels_dataset_id_runs_id_fk": {
+          "name": "channels_dataset_id_runs_id_fk",
           "tableFrom": "channels",
           "tableTo": "runs",
           "columnsFrom": [
-            "run_id"
+            "dataset_id"
           ],
           "columnsTo": [
             "id"
@@ -427,9 +427,9 @@
         }
       },
       "foreignKeys": {
-        "runs_experiment_id_experiments_id_fk": {
+        "datasets_experiment_id_experiments_id_fk": {
           "name": "runs_experiment_id_experiments_id_fk",
-          "tableFrom": "runs",
+          "tableFrom": "datasets",
           "tableTo": "experiments",
           "columnsFrom": [
             "experiment_id"

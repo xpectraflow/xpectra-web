@@ -3,7 +3,7 @@ import { z } from "zod";
 import { queryTelemetryFromConsumer } from "@/lib/consumer-telemetry-client";
 import { channels } from "@/server/db/schema";
 import {
-  assertRunInOrganization,
+  assertDatasetInOrganization,
   getOrCreateDbUser,
   getPrimaryOrganizationIdForUser,
   userInfoFromSession,
@@ -18,7 +18,7 @@ const telemetryRangeSchema = z.object({
 
 const telemetryInputSchema = z.object({
   experimentId: z.uuid(),
-  runId: z.uuid(),
+  datasetId: z.uuid(),
   channelIds: z.array(z.uuid()).min(1),
   range: telemetryRangeSchema,
 });
@@ -60,10 +60,10 @@ export const telemetryRouter = createTRPCRouter({
         userId,
       });
 
-      await assertRunInOrganization({
+      await assertDatasetInOrganization({
         db: ctx.db,
         experimentId: input.experimentId,
-        runId: input.runId,
+        datasetId: input.datasetId,
         organizationId,
       });
 
@@ -77,7 +77,7 @@ export const telemetryRouter = createTRPCRouter({
         .from(channels)
         .where(
           and(
-            eq(channels.runId, input.runId),
+            eq(channels.datasetId, input.datasetId),
             inArray(channels.id, input.channelIds),
           ),
         );
@@ -91,7 +91,7 @@ export const telemetryRouter = createTRPCRouter({
 
       const rawTelemetryRows = await queryTelemetryFromConsumer({
         experimentId: input.experimentId,
-        runId: input.runId,
+        datasetId: input.datasetId,
         channelIds: requestedChannels.map((channel) => channel.id),
         from: fromDate.toISOString(),
         to: toDate.toISOString(),

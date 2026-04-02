@@ -196,7 +196,7 @@ export default function JobsPage() {
                         </div>
                         <div className="flex-1">
                           <div className="text-sm font-medium text-foreground">
-                            Last run
+                            Last dataset
                           </div>
                           <div className="text-xs text-muted-foreground">
                             2024-01-20 14:22:00 UTC

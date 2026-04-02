@@ -2,26 +2,26 @@
 
 import { FormEvent, useState } from "react";
 
-export type RunFormValues = {
+export type DatasetFormValues = {
   name: string;
   status: "queued" | "running" | "completed" | "failed";
 };
 
-type RunFormProps = {
+type DatasetFormProps = {
   submitLabel: string;
   isSubmitting?: boolean;
-  initialValues?: Partial<RunFormValues>;
-  onSubmit: (values: RunFormValues) => Promise<void> | void;
+  initialValues?: Partial<DatasetFormValues>;
+  onSubmit: (values: DatasetFormValues) => Promise<void> | void;
 };
 
-export function RunForm({
+export function DatasetForm({
   submitLabel,
   isSubmitting = false,
   initialValues,
   onSubmit,
-}: RunFormProps) {
+}: DatasetFormProps) {
   const [name, setName] = useState(initialValues?.name ?? "");
-  const [status, setStatus] = useState<RunFormValues["status"]>(
+  const [status, setStatus] = useState<DatasetFormValues["status"]>(
     initialValues?.status ?? "queued",
   );
 
@@ -36,12 +36,12 @@ export function RunForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-3 rounded-xl border border-border bg-card p-4">
-      <h3 className="text-sm font-semibold text-card-foreground">Run</h3>
+      <h3 className="text-sm font-semibold text-card-foreground">Dataset</h3>
 
       <input
         value={name}
         onChange={(event) => setName(event.target.value)}
-        placeholder="Baseline run"
+        placeholder="Baseline dataset"
         className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground outline-none ring-ring transition focus:ring-1"
         maxLength={120}
         required
@@ -49,7 +49,7 @@ export function RunForm({
 
       <select
         value={status}
-        onChange={(event) => setStatus(event.target.value as RunFormValues["status"])}
+        onChange={(event) => setStatus(event.target.value as DatasetFormValues["status"])}
         className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground outline-none ring-ring transition focus:ring-1"
       >
         <option value="queued">Queued</option>

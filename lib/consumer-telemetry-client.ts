@@ -24,7 +24,7 @@ type QueryPoint = {
 
 type QueryTelemetryInput = {
   experimentId: string;
-  runId: string;
+  datasetId: string;
   channelIds: string[];
   from: string;
   to: string;
@@ -117,7 +117,7 @@ export async function queryTelemetryFromConsumer(
     grpcTelemetryClient.Query(
       {
         experiment_id: input.experimentId,
-        run_id: input.runId,
+        dataset_id: input.datasetId,
         channel_ids: input.channelIds,
         from: toProtoTimestamp(input.from),
         to: toProtoTimestamp(input.to),
