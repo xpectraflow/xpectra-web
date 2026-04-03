@@ -17,6 +17,7 @@ import {
   FlaskConical,
   Activity,
   Gamepad,
+  List,
 } from 'lucide-react';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
@@ -128,7 +129,7 @@ export function Sidebar() {
                 Workflows
               </div>
               <SidebarItem href="/clusters" icon={Server} label="Clusters" />
-              <SidebarItem href="/jobs" icon={Briefcase} label="Jobs" />
+              <SidebarItem href="/rules" icon={List} label="Rules" />
               <SidebarItem href="/automations" icon={Zap} label="Automations" />
             </div>
           </div>

@@ -81,15 +81,15 @@ export default function Home() {
               </h2>
             </div>
             <p className="mb-6 text-sm text-muted-foreground">
-              Attach jobs and automations to process data.
+              Attach rules and automations to process data.
             </p>
             <div className="space-y-2">
               <Link
-                href="/jobs"
+                href="/rules"
                 className="flex w-full items-center justify-center gap-2 rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
               >
                 <Zap className="h-4 w-4" />
-                View Jobs
+                View Rules
                 <ArrowRight className="h-4 w-4" />
               </Link>
               <Link
@@ -107,7 +107,7 @@ export default function Home() {
         {/* Footer Hint */}
         <div className="text-center">
           <p className="text-sm text-muted-foreground">
-            Once defined, datasets can be linked to jobs, automations, and
+            Once defined, datasets can be linked to rules, automations, and
             clusters.
           </p>
         </div>

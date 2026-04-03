@@ -45,7 +45,7 @@ export default function DatasetsPage() {
   const [hoveredRow, setHoveredRow] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
-  const getActiveJobsCount = (datasetName: string): number => {
+  const getActiveRulesCount = (datasetName: string): number => {
     const nameLower = datasetName.toLowerCase();
     if (nameLower.includes('mosdac')) return 2;
     if (nameLower.includes('aqi')) return 1;
@@ -61,7 +61,7 @@ export default function DatasetsPage() {
     datapoints: number;
     source: string;
     isStatic: boolean;
-    activeJobs: number;
+    activeRules: number;
     device?: Device;
   };
 
@@ -74,7 +74,7 @@ export default function DatasetsPage() {
     source: device.source || 'Internal',
     device: device,
     isStatic: false,
-    activeJobs: getActiveJobsCount(device.name),
+    activeRules: getActiveRulesCount(device.name),
   }));
 
   const filteredRows = tableRows.filter(
@@ -133,7 +133,7 @@ export default function DatasetsPage() {
                     Datapoints
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                    Active Jobs
+                    Active Rules
                   </th>
                 </tr>
               </thead>
@@ -209,7 +209,7 @@ export default function DatasetsPage() {
                         {row.datapoints}
                       </td>
                       <td className="px-4 py-3 text-sm text-muted-foreground">
-                        {row.activeJobs}
+                        {row.activeRules}
                       </td>
 
                       {/* Hover Schema Preview Tooltip */}

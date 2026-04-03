@@ -5,47 +5,218 @@ import Link from "next/link";
 import Image from "next/image";
 import { useSession, signOut } from "next-auth/react";
 import { trpc } from "@/lib/trpc";
+import { useContextMenu, ContextMenu, ContextMenuItem } from "@/components/playground/ContextMenu";
+import { usePlayground } from "@/components/playground/PlaygroundContext";
 import {
   FlaskConical,
   ChevronDown,
   ChevronRight,
-  Activity,
+  Database,
+  Radio,
   ArrowLeft,
   LogOut,
   Loader2,
-  Radio,
+  BarChart2,
+  Hash,
 } from "lucide-react";
 
 /* ─── Types ─────────────────────────────────────────────────────────────────── */
 
-type Experiment = {
-  id: string;
-  name: string;
-  status: string;
+const EXPERIMENT_STATUS_DOT: Record<string, string> = {
+  active: "bg-[#00a2f4]",
+  draft: "bg-[#f59e0b]",
+  archived: "bg-[#353534]",
 };
 
-type PlaygroundSidebarProps = {
-  selectedExperimentId: string | null;
-  onSelectExperiment: (id: string) => void;
+const DATASET_STATUS_COLOR: Record<string, string> = {
+  completed: "text-[#16a34a]",
+  running: "text-[#2563eb]",
+  queued: "text-[#f59e0b]",
+  failed: "text-[#dc2626]",
 };
 
-/* ─── Experiment Row ─────────────────────────────────────────────────────────── */
+/* ─── Channels inside a dataset ─────────────────────────────────────────────── */
+
+function DatasetChannels({
+  experimentId,
+  datasetId,
+}: {
+  experimentId: string;
+  datasetId: string;
+}) {
+  const channelsQuery = trpc.channels.getChannels.useQuery(
+    { experimentId, datasetId },
+    { enabled: true }
+  );
+  const channels = channelsQuery.data ?? [];
+
+  if (channelsQuery.isLoading) {
+    return (
+      <div className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] text-muted-foreground">
+        <Loader2 className="h-3 w-3 animate-spin" />
+      </div>
+    );
+  }
+
+  if (channels.length === 0) {
+    return (
+      <p className="px-3 py-1 font-mono text-[10px] text-muted-foreground/50">
+        No channels
+      </p>
+    );
+  }
+
+  return (
+    <>
+      {channels.map((ch) => (
+        <div
+          key={ch.id}
+          className="flex items-center gap-2 rounded px-3 py-1 text-[11px] text-muted-foreground/70 transition hover:bg-[#1c1b1b] hover:text-muted-foreground"
+        >
+          <Hash className="h-2.5 w-2.5 shrink-0 text-muted-foreground/30" />
+          <span className="flex-1 truncate">{ch.name}</span>
+          {ch.unit && (
+            <span className="font-mono text-[10px] text-muted-foreground/40">{ch.unit}</span>
+          )}
+        </div>
+      ))}
+    </>
+  );
+}
+
+/* ─── Dataset row with right-click ────────────────────────────────────────────── */
+
+function DatasetRow({
+  dataset,
+  experimentId,
+  open,
+  onToggle,
+}: {
+  dataset: { id: string; name: string; status: string };
+  experimentId: string;
+  open: boolean;
+  onToggle: () => void;
+}) {
+  const { plotAllChannels } = usePlayground();
+  const { menu, open: openMenu, close: closeMenu } = useContextMenu();
+
+  const menuItems: ContextMenuItem[] = [
+    {
+      type: "item",
+      label: "Plot all channels",
+      icon: <BarChart2 className="h-3.5 w-3.5" />,
+      onClick: () =>
+        plotAllChannels({
+          datasetId: dataset.id,
+          datasetName: dataset.name,
+          experimentId,
+        }),
+    },
+    { type: "separator" },
+    {
+      type: "item",
+      label: "Open dataset →",
+      icon: <Database className="h-3.5 w-3.5" />,
+      onClick: () => {
+        window.location.href = `/datasets`;
+      },
+    },
+  ];
+
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={onToggle}
+        onContextMenu={(e) => openMenu(e, menuItems)}
+        className="group flex w-full items-center gap-2 rounded px-3 py-1.5 text-left text-[12px] text-muted-foreground transition hover:bg-[#1c1b1b] hover:text-foreground"
+      >
+        {open ? (
+          <ChevronDown className="h-3 w-3 shrink-0 text-[#f97316]/70" />
+        ) : (
+          <ChevronRight className="h-3 w-3 shrink-0 opacity-40 group-hover:opacity-100" />
+        )}
+        <Database className="h-3 w-3 shrink-0 text-muted-foreground/50" />
+        <span className="flex-1 truncate">{dataset.name}</span>
+        <span
+          className={`font-mono text-[9px] uppercase tracking-wider ${
+            DATASET_STATUS_COLOR[dataset.status] ?? "text-muted-foreground/40"
+          }`}
+        >
+          {dataset.status}
+        </span>
+      </button>
+
+      {open && (
+        <div className="ml-5 mt-0.5 space-y-0">
+          <DatasetChannels experimentId={experimentId} datasetId={dataset.id} />
+        </div>
+      )}
+
+      {menu && (
+        <ContextMenu x={menu.x} y={menu.y} items={menu.items} onClose={closeMenu} />
+      )}
+    </div>
+  );
+}
+
+/* ─── Datasets for an experiment ─────────────────────────────────────────────── */
+
+function ExperimentDatasets({ experimentId }: { experimentId: string }) {
+  const datasetsQuery = trpc.datasets.getDatasets.useQuery({ experimentId });
+  const datasets = datasetsQuery.data ?? [];
+  const [openDatasets, setOpenDatasets] = useState<Record<string, boolean>>({});
+
+  function toggleDataset(id: string) {
+    setOpenDatasets((prev) => ({ ...prev, [id]: !prev[id] }));
+  }
+
+  if (datasetsQuery.isLoading) {
+    return (
+      <div className="flex items-center gap-2 px-4 py-2 text-[11px] text-muted-foreground">
+        <Loader2 className="h-3 w-3 animate-spin" />
+        Loading datasets…
+      </div>
+    );
+  }
+
+  if (datasets.length === 0) {
+    return (
+      <p className="px-4 py-2 font-mono text-[10px] text-muted-foreground/50">
+        No datasets in this experiment.
+      </p>
+    );
+  }
+
+  return (
+    <div className="mt-1 space-y-0.5 pb-1">
+      <p className="mb-1 px-4 font-mono text-[9px] uppercase tracking-widest text-muted-foreground/40">
+        Datasets
+      </p>
+      {datasets.map((ds) => (
+        <DatasetRow
+          key={ds.id}
+          dataset={ds}
+          experimentId={experimentId}
+          open={!!openDatasets[ds.id]}
+          onToggle={() => toggleDataset(ds.id)}
+        />
+      ))}
+    </div>
+  );
+}
+
+/* ─── Experiment row ────────────────────────────────────────────────────────── */
 
 function ExperimentRow({
   experiment,
   selected,
   onSelect,
 }: {
-  experiment: Experiment;
+  experiment: { id: string; name: string; status: string };
   selected: boolean;
   onSelect: () => void;
 }) {
-  const STATUS_COLOR: Record<string, string> = {
-    active: "bg-[#00a2f4]",
-    draft: "bg-[#f59e0b]",
-    archived: "bg-[#353534]",
-  };
-
   return (
     <button
       type="button"
@@ -64,7 +235,9 @@ function ExperimentRow({
       <FlaskConical className="h-3.5 w-3.5 shrink-0" />
       <span className="flex-1 truncate text-xs font-medium">{experiment.name}</span>
       <span
-        className={`h-1.5 w-1.5 shrink-0 rounded-full ${STATUS_COLOR[experiment.status] ?? "bg-muted"}`}
+        className={`h-1.5 w-1.5 shrink-0 rounded-full ${
+          EXPERIMENT_STATUS_DOT[experiment.status] ?? "bg-[#353534]"
+        }`}
       />
     </button>
   );
@@ -72,40 +245,33 @@ function ExperimentRow({
 
 /* ─── Sidebar ───────────────────────────────────────────────────────────────── */
 
+type PlaygroundSidebarProps = {
+  selectedExperimentId: string | null;
+  onSelectExperiment: (id: string) => void;
+};
+
 export function PlaygroundSidebar({
   selectedExperimentId,
   onSelectExperiment,
 }: PlaygroundSidebarProps) {
   const { data: session } = useSession();
-  const [sensorOpen, setSensorOpen] = useState<Record<string, boolean>>({});
-
   const experimentsQuery = trpc.experiments.getExperiments.useQuery();
   const experiments = experimentsQuery.data ?? [];
 
-  // Fetch sensors for the selected experiment (if any)
-  const sensorsQuery = trpc.sensors.getSensors.useQuery(undefined, {
-    enabled: !!selectedExperimentId,
-  });
-  const sensors = sensorsQuery.data ?? [];
-
-  function toggleSensor(sensorId: string) {
-    setSensorOpen((prev) => ({ ...prev, [sensorId]: !prev[sensorId] }));
-  }
-
   return (
     <aside className="flex h-screen w-64 shrink-0 flex-col border-r border-[#27272a] bg-[#0e0e0e]">
-      {/* ── Top bar ── */}
+      {/* ── Brand ── */}
       <div className="flex items-center gap-3 border-b border-[#27272a] px-4 py-3">
         <div className="relative h-7 w-8 shrink-0 overflow-hidden rounded">
           <Image src="/logo.svg" alt="Xpectra" fill className="object-contain" priority />
         </div>
-        <div className="flex-1 min-w-0">
+        <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-semibold text-foreground">Xpectra</p>
           <p className="font-mono text-[10px] text-[#f97316]">MISSION CONTROL</p>
         </div>
       </div>
 
-      {/* ── Back to app ── */}
+      {/* ── Back link ── */}
       <div className="border-b border-[#27272a] px-3 py-2">
         <Link
           href="/experiments"
@@ -116,9 +282,9 @@ export function PlaygroundSidebar({
         </Link>
       </div>
 
-      {/* ── Experiments list ── */}
+      {/* ── Tree ── */}
       <div className="flex-1 overflow-y-auto px-2 py-3">
-        <p className="mb-2 px-3 font-mono text-[10px] uppercase tracking-widest text-muted-foreground/60">
+        <p className="mb-2 px-3 font-mono text-[10px] uppercase tracking-widest text-muted-foreground/50">
           Experiments
         </p>
 
@@ -148,51 +314,8 @@ export function PlaygroundSidebar({
                   onSelect={() => onSelectExperiment(exp.id)}
                 />
 
-                {/* Sensors for this experiment (shown when experiment is selected) */}
                 {selectedExperimentId === exp.id && (
-                  <div className="ml-4 mt-1 space-y-0.5">
-                    <p className="mb-1.5 px-3 font-mono text-[10px] uppercase tracking-widest text-muted-foreground/50">
-                      Sensors
-                    </p>
-                    {sensorsQuery.isLoading ? (
-                      <div className="flex items-center gap-2 px-3 py-2 text-xs text-muted-foreground">
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                      </div>
-                    ) : sensors.length === 0 ? (
-                      <p className="px-3 text-[11px] text-muted-foreground/60">
-                        No sensors linked.
-                      </p>
-                    ) : (
-                      sensors.map((sensor) => (
-                        <div key={sensor.id}>
-                          <button
-                            type="button"
-                            onClick={() => toggleSensor(sensor.id)}
-                            className="flex w-full items-center gap-2 rounded px-3 py-1.5 text-left text-xs text-muted-foreground transition hover:bg-[#1c1b1b] hover:text-foreground"
-                          >
-                            {sensorOpen[sensor.id] ? (
-                              <ChevronDown className="h-3 w-3 shrink-0" />
-                            ) : (
-                              <ChevronRight className="h-3 w-3 shrink-0" />
-                            )}
-                            <Activity className="h-3 w-3 shrink-0" />
-                            <span className="flex-1 truncate">{sensor.name}</span>
-                          </button>
-
-                          {sensorOpen[sensor.id] && (
-                            <div className="ml-6 mt-0.5 space-y-0.5">
-                              <div className="flex items-center gap-1.5 px-2 py-1">
-                                <Radio className="h-3 w-3 text-muted-foreground/40" />
-                                <span className="font-mono text-[10px] text-muted-foreground/60">
-                                  {sensor.channelCount} ch · S/N {sensor.serialNumber ?? "—"}
-                                </span>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      ))
-                    )}
-                  </div>
+                  <ExperimentDatasets experimentId={exp.id} />
                 )}
               </div>
             ))}
@@ -206,7 +329,7 @@ export function PlaygroundSidebar({
           <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded bg-[#1c1b1b] font-mono text-xs font-bold text-[#f97316]">
             {session?.user?.name?.[0]?.toUpperCase() ?? "?"}
           </div>
-          <div className="flex-1 min-w-0">
+          <div className="min-w-0 flex-1">
             <p className="truncate text-xs font-medium text-foreground">
               {session?.user?.name ?? "User"}
             </p>

@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { PageLayout } from '@/components/PageLayout';
 
-const jobs = [
+const rules = [
   {
     id: '1',
     name: 'Ingest MOSDAC Satellite Feed',
@@ -30,8 +30,8 @@ const jobs = [
   },
 ];
 
-export default function JobsPage() {
-  const [selectedJob, setSelectedJob] = useState<string | null>(null);
+export default function RulesPage() {
+  const [selectedRule, setselectedRule] = useState<string | null>(null);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -47,13 +47,13 @@ export default function JobsPage() {
   };
 
   return (
-    <PageLayout title="Jobs" description="Data processing jobs operating on datasets">
+    <PageLayout title="Rules" description="Data processing rules operating on datasets">
       <div className="overflow-hidden rounded-lg border border-border">
         <table className="w-full">
           <thead className="border-b border-border bg-card/50">
             <tr>
               <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                Job Name
+                Rule Name
               </th>
               <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
                 Dataset
@@ -70,27 +70,27 @@ export default function JobsPage() {
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
-            {jobs.map((job) => (
+            {rules.map((rule) => (
               <tr
-                key={job.id}
-                onClick={() => setSelectedJob(job.id)}
+                key={rule.id}
+                onClick={() => setselectedRule(rule.id)}
                 className="cursor-pointer transition-colors hover:bg-card/50"
               >
-                <td className="px-4 py-3 text-sm text-foreground">{job.name}</td>
-                <td className="px-4 py-3 text-sm text-muted-foreground">{job.dataset}</td>
+                <td className="px-4 py-3 text-sm text-foreground">{rule.name}</td>
+                <td className="px-4 py-3 text-sm text-muted-foreground">{rule.dataset}</td>
                 <td className="px-4 py-3 text-sm text-muted-foreground">
-                  {job.cluster}
+                  {rule.cluster}
                 </td>
                 <td className="px-4 py-3 text-sm text-muted-foreground">
-                  {job.schedule}
+                  {rule.schedule}
                 </td>
                 <td className="px-4 py-3">
                   <span
                     className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${getStatusColor(
-                      job.status
+                      rule.status
                     )}`}
                   >
-                    {job.status}
+                    {rule.status}
                   </span>
                 </td>
               </tr>
@@ -99,14 +99,14 @@ export default function JobsPage() {
         </table>
       </div>
 
-      {/* Job Details Modal (Read-only) */}
-      {selectedJob && (
+      {/* Rule Details Modal (Read-only) */}
+      {selectedRule && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-2xl rounded-lg border border-border bg-card p-6 shadow-xl">
             <div className="mb-6 flex items-center justify-between">
-              <h2 className="text-xl font-semibold text-foreground">Job Details</h2>
+              <h2 className="text-xl font-semibold text-foreground">Rule Details</h2>
               <button
-                onClick={() => setSelectedJob(null)}
+                onClick={() => setselectedRule(null)}
                 className="rounded-lg p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
               >
                 ✕
@@ -114,35 +114,35 @@ export default function JobsPage() {
             </div>
 
             {(() => {
-              const job = jobs.find((j) => j.id === selectedJob);
-              if (!job) return null;
+              const rule = rules.find((j) => j.id === selectedRule);
+              if (!rule) return null;
 
               return (
                 <div className="space-y-6">
                   <div className="space-y-4 rounded-lg border border-border bg-background/50 p-4">
                     <div className="flex justify-between">
                       <span className="text-sm font-medium text-muted-foreground">
-                        Job Name
+                        Rule Name
                       </span>
-                      <span className="text-sm text-foreground">{job.name}</span>
+                      <span className="text-sm text-foreground">{rule.name}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-sm font-medium text-muted-foreground">
                         Dataset
                       </span>
-                      <span className="text-sm text-muted-foreground">{job.dataset}</span>
+                      <span className="text-sm text-muted-foreground">{rule.dataset}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-sm font-medium text-muted-foreground">
                         Cluster
                       </span>
-                      <span className="text-sm text-muted-foreground">{job.cluster}</span>
+                      <span className="text-sm text-muted-foreground">{rule.cluster}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-sm font-medium text-muted-foreground">
                         Schedule
                       </span>
-                      <span className="text-sm text-muted-foreground">{job.schedule}</span>
+                      <span className="text-sm text-muted-foreground">{rule.schedule}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-sm font-medium text-muted-foreground">
@@ -150,10 +150,10 @@ export default function JobsPage() {
                       </span>
                       <span
                         className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${getStatusColor(
-                          job.status
+                          rule.status
                         )}`}
                       >
-                        {job.status}
+                        {rule.status}
                       </span>
                     </div>
                   </div>
@@ -170,7 +170,7 @@ export default function JobsPage() {
                         </div>
                         <div className="flex-1">
                           <div className="text-sm font-medium text-foreground">
-                            Job created
+                            Rule created
                           </div>
                           <div className="text-xs text-muted-foreground">
                             2024-01-15 10:30:00 UTC

@@ -19,7 +19,7 @@ export default function AutomationsPage() {
   return (
     <PageLayout
       title="Automations"
-      description="Rule-based triggers that control when jobs run"
+      description="Rule-based triggers that control when rules run"
     >
       <div className="space-y-4">
         {automations.map((automation, index) => (
