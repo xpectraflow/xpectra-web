@@ -206,31 +206,45 @@ type SensorConfig = {
   }>;
 };
 
-export const experiments = pgTable("experiments", {
-  id:             uuid("id").primaryKey(),
-  organizationId: uuid("organization_id")
-                    .notNull()
-                    .references(() => organizations.id, { onDelete: "cascade" }),
-  createdBy: uuid("created_by_user_id")
-               .notNull()
-               .references(() => users.id, { onDelete: "cascade" }),
-  name:        text("name").notNull(),
-  description: text("description"),
+export const experiments = pgTable(
+  "experiments",
+  {
+    id: uuid("id").primaryKey(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    createdBy: uuid("created_by_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    description: text("description"),
 
-  /**
-   * Experiment lifecycle.
-   * Values: 'draft' | 'active' | 'archived'
-   */
-  status: text("status").notNull().default("draft"),
+    /**
+     * Timescale hypertable identifier for this experiment (Go-owned DDL).
+     * Format: `hyper-{experiment_uuid}` — unique; set at insert.
+     */
+    hypertableName: varchar("hypertable_name", { length: 128 }).notNull(),
 
-  /**
-   * Sensor membership + chart config — no join table needed.
-   * Null until the user configures sensors for this experiment.
-   */
-  sensorConfig: jsonb("sensor_config").$type<SensorConfig>(),
+    /**
+     * Experiment lifecycle.
+     * Values: 'draft' | 'active' | 'archived'
+     */
+    status: text("status").notNull().default("draft"),
 
-  ...timestamps,
-});
+    /**
+     * Sensor membership + chart config — no join table needed.
+     * Null until the user configures sensors for this experiment.
+     */
+    sensorConfig: jsonb("sensor_config").$type<SensorConfig>(),
+
+    ...timestamps,
+  },
+  (table) => ({
+    experimentsHypertableNameKey: uniqueIndex("experiments_hypertable_name_key").on(
+      table.hypertableName,
+    ),
+  }),
+);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Datasets
@@ -288,6 +302,9 @@ export const datasets = pgTable("datasets", {
     notes: text("notes"),
     /** Go service stores sampling_rate_hz, firmware_version, trigger_source, etc. */
     meta: jsonb("meta").$type<Record<string, unknown>>(),
+
+    /** Hashed key for authenticating gRPC ingestion */
+    telemetryIngestKey: text("telemetry_ingest_key"),
 
     ...timestamps,
   },

@@ -11,6 +11,11 @@ import {
 } from "@/server/routers/ownership";
 import { createTRPCRouter, protectedProcedure } from "@/server/trpc";
 
+/** Matches `experiments.hypertable_name`: unique per experiment; safe to quote as SQL identifier if needed. */
+export function experimentHypertableNameFromId(experimentId: string): string {
+  return `hyper-${experimentId}`;
+}
+
 const sensorEntrySchema = z.object({
   sensorId: z.string().uuid(),
   channelIndices: z.array(z.number().int()).nullable(),
@@ -45,14 +50,16 @@ export const experimentsRouter = createTRPCRouter({
         userId,
       });
 
+      const experimentId = randomUUID();
       const [createdExperiment] = await ctx.db
         .insert(experiments)
         .values({
-          id: randomUUID(),
+          id: experimentId,
           organizationId,
           createdBy: userId,
           name: input.name,
           description: input.description ?? null,
+          hypertableName: experimentHypertableNameFromId(experimentId),
           status: input.status,
           sensorConfig: input.sensors?.length
             ? { sensors: input.sensors, charts: [] }
@@ -192,14 +199,16 @@ export const experimentsRouter = createTRPCRouter({
         organizationId,
       });
 
+      const newExperimentId = randomUUID();
       const [created] = await ctx.db
         .insert(experiments)
         .values({
-          id: randomUUID(),
+          id: newExperimentId,
           organizationId,
           createdBy: userId,
           name: `${source.name} (Copy)`,
           description: source.description,
+          hypertableName: experimentHypertableNameFromId(newExperimentId),
           status: "draft",
           sensorConfig: source.sensorConfig,
         })

@@ -1,8 +1,8 @@
-import { randomUUID } from "crypto";
+import { randomUUID, randomBytes } from "crypto";
 import { TRPCError } from "@trpc/server";
 import { and, desc, eq } from "drizzle-orm";
 import { z } from "zod";
-import { datasets } from "@/server/db/schema";
+import { datasets, experiments } from "@/server/db/schema";
 import {
   assertExperimentInOrganization,
   assertDatasetInOrganization,
@@ -10,7 +10,8 @@ import {
   getPrimaryOrganizationIdForUser,
   userInfoFromSession,
 } from "@/server/routers/ownership";
-import { createTRPCRouter, protectedProcedure } from "@/server/trpc";
+import { createTRPCRouter, protectedProcedure, publicProcedure } from "@/server/trpc";
+import bcrypt from "bcryptjs";
 
 const datasetStatusSchema = z.enum(["queued", "running", "completed", "failed"]);
 
@@ -21,6 +22,11 @@ const datasetScopeInput = z.object({
 const createDatasetInput = datasetScopeInput.extend({
   name: z.string().trim().min(2).max(120),
   status: datasetStatusSchema.default("queued"),
+});
+
+const getRunMetadataInput = z.object({
+  runId: z.string().uuid(),
+  telemetryIngestKey: z.string(),
 });
 
 const datasetIdInput = datasetScopeInput.extend({
@@ -51,17 +57,60 @@ export const datasetsRouter = createTRPCRouter({
       organizationId,
     });
 
+    const experiment = await ctx.db.query.experiments.findFirst({
+      where: (exp, { eq }) => eq(exp.id, input.experimentId),
+    });
+
+    if (!experiment) {
+      throw new TRPCError({ code: "NOT_FOUND", message: "Experiment not found" });
+    }
+
+    const unhashedKey = randomBytes(32).toString("hex");
+    const hashedKey = await bcrypt.hash(unhashedKey, 10);
+
+    const datasetId = randomUUID();
+
     const [createdDataset] = await ctx.db
       .insert(datasets)
       .values({
-        id: randomUUID(),
+        id: datasetId,
         experimentId: input.experimentId,
         name: input.name,
         status: input.status,
+        telemetryIngestKey: hashedKey,
       })
       .returning();
 
-    return createdDataset;
+    return {
+      ...createdDataset,
+      unhashedTelemetryIngestKey: unhashedKey,
+      hypertableName: experiment.hypertableName,
+      channelIndices: experiment.sensorConfig?.sensors?.flatMap(s => s.channelIndices || []) || [],
+    };
+  }),
+
+  getRunMetadata: publicProcedure.input(getRunMetadataInput).query(async ({ ctx, input }) => {
+    const dataset = await ctx.db.query.datasets.findFirst({
+      where: (ds, { eq }) => eq(ds.id, input.runId),
+      with: {
+        experiment: true,
+      },
+    });
+
+    if (!dataset || !dataset.telemetryIngestKey) {
+      throw new TRPCError({ code: "NOT_FOUND", message: "Dataset not found" });
+    }
+
+    const isValid = await bcrypt.compare(input.telemetryIngestKey, dataset.telemetryIngestKey);
+    if (!isValid) {
+      throw new TRPCError({ code: "UNAUTHORIZED", message: "Invalid telemetry ingest key" });
+    }
+
+    return {
+      experimentId: dataset.experimentId,
+      hypertableName: dataset.experiment.hypertableName,
+      channelIndices: dataset.experiment.sensorConfig?.sensors?.flatMap(s => s.channelIndices || []) || [],
+    };
   }),
 
   getDatasets: protectedProcedure.input(datasetScopeInput).query(async ({ ctx, input }) => {
