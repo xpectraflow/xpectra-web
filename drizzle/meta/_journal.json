@@ -8,6 +8,13 @@
       "when": 1775153370901,
       "tag": "0000_whole_earthquake",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1775477763578,
+      "tag": "0001_left_lethal_legion",
+      "breakpoints": true
     }
   ]
 }

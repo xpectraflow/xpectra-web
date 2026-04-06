@@ -22,7 +22,7 @@ const packageDefinition = protoLoader.loadSync(PROTO_PATH, {
 });
 
 const protoDescriptor = grpc.loadPackageDefinition(packageDefinition) as any;
-const telemetryPackage = protoDescriptor.sift.telemetry.v1;
+const telemetryPackage = protoDescriptor.xpectra.telemetry.v1;
 
 // Instantiate client singleton
 const grpcClient = new telemetryPackage.TelemetryService(
@@ -81,11 +81,11 @@ export const ingestionRouter = createTRPCRouter({
         };
 
         if (typeof p.value === "number") {
-          point.double_value = p.value;
+          point.double = p.value;
         } else if (typeof p.value === "boolean") {
-          point.bool_value = p.value;
+          point.bool = p.value;
         } else if (typeof p.value === "string") {
-          point.string_value = p.value;
+          point.string = p.value;
         }
 
         return point;
@@ -93,11 +93,16 @@ export const ingestionRouter = createTRPCRouter({
 
       // Call gRPC microservice
       return new Promise((resolve, reject) => {
-        grpcClient.IngestBatch(
+        const metadata = new grpc.Metadata();
+        metadata.add("telemetry-ingest-key", input.telemetryIngestKey);
+
+        grpcClient.Submit(
           {
+            experiment_id: dataset.experimentId,
+            dataset_id: input.runId,
             points: protoPoints,
-            telemetry_ingest_key: input.telemetryIngestKey,
           },
+          metadata,
           (err: any, response: any) => {
             if (err) {
               return reject(
