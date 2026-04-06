@@ -1,13 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { PageLayout } from '@/components/PageLayout';
 import { ExcelTable } from '@/components/ui/excel-style-table';
 import { trpc } from '@/lib/trpc';
 import { toast } from 'sonner';
 import { useRouter, useSearchParams } from 'next/navigation';
 
-export default function CreateSensorPage() {
+function CreateSensorForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const duplicateId = searchParams.get('duplicate');
@@ -294,5 +294,19 @@ export default function CreateSensorPage() {
         </div>
       </form>
     </PageLayout>
+  );
+}
+
+export default function CreateSensorPage() {
+  return (
+    <Suspense fallback={
+      <PageLayout title="Create Sensor" description="Loading...">
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        </div>
+      </PageLayout>
+    }>
+      <CreateSensorForm />
+    </Suspense>
   );
 }

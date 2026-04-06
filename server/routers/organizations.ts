@@ -38,13 +38,13 @@ export const organizationsRouter = createTRPCRouter({
       columns: { organisationId: true },
     });
 
-    if (!userRow?.organisationId) {
-      return [];
-    }
+    if (!userRow) return [];
+    const orgId = userRow.organisationId;
+    if (!orgId) return [];
 
     const organization = await ctx.db.query.organizations.findFirst({
       where: (organizationRow, { eq: eqOperator }) =>
-        eqOperator(organizationRow.id, userRow.organisationId),
+        eqOperator(organizationRow.id, orgId),
       columns: {
         id: true,
         name: true,

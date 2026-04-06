@@ -7,11 +7,6 @@ import { eq } from "drizzle-orm";
 import { randomBytes, randomUUID } from "crypto";
 import bcrypt from "bcryptjs";
 
-export const config = {
-  api: {
-    bodyParser: false,
-  },
-};
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);

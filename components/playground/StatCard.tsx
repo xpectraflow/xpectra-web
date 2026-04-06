@@ -1,12 +1,12 @@
 "use client";
 
-import { LucideIcon } from "lucide-react";
+import type { LucideIcon, LucideProps } from "lucide-react";
 
 interface StatCardProps {
   label: string;
   value: string;
   unit?: string;
-  icon?: LucideIcon;
+  icon?: React.ComponentType<any>;
   trend?: "up" | "down" | "stable";
   trendValue?: string;
   status?: "healthy" | "warning" | "critical" | "idle";
@@ -47,11 +47,10 @@ export function StatCard({
 }: StatCardProps) {
   return (
     <div
-      className={`relative overflow-hidden rounded p-4 transition-all ${
-        highlight
-          ? "bg-[#201f1f] ring-1 ring-[#f97316]/30"
-          : "bg-[#1c1b1b] hover:bg-[#201f1f]"
-      }`}
+      className={`relative overflow-hidden rounded p-4 transition-all ${highlight
+        ? "bg-[#201f1f] ring-1 ring-[#f97316]/30"
+        : "bg-[#1c1b1b] hover:bg-[#201f1f]"
+        }`}
     >
       {highlight && (
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-[#f97316]/5 to-transparent" />
@@ -65,9 +64,8 @@ export function StatCard({
           {status && (
             <span className="flex items-center gap-1">
               <span
-                className={`inline-block h-1.5 w-1.5 rounded-full ${STATUS_DOT[status]} ${
-                  status === "healthy" ? "animate-pulse" : ""
-                }`}
+                className={`inline-block h-1.5 w-1.5 rounded-full ${STATUS_DOT[status]} ${status === "healthy" ? "animate-pulse" : ""
+                  }`}
               />
               <span className={`font-mono text-[10px] uppercase ${STATUS_COLORS[status]}`}>
                 {status}
