@@ -164,7 +164,7 @@ export const sensorChannels = pgTable(
  *   sensors: [
  *     {
  *       sensorId: "<uuid>",
- *       channelIndices: [0, 1]   // null = all channels
+ *       channelIndices: [1, 2, 3]   // experiment-wide 1-based ordinals across sensors (create flow); null = unset / no channels
  *     }
  *   ],
  *   charts: [

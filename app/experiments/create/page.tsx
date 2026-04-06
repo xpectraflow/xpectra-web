@@ -3,11 +3,56 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { PageLayout } from "@/components/PageLayout";
+import { SortableItem } from "@/components/experiments/SortableItem"
 import { trpc } from "@/lib/trpc";
 import { Search, Plus, X, Activity, ChevronDown, ChevronUp } from "lucide-react";
 import { toast } from "sonner";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
 
 type SelectedSensor = { sensorId: string; channelIndices: number[] | null };
+
+type SensorListItem = {
+  id: string;
+  channelCount: number;
+};
+
+/**
+ * Experiment-wide incremental channel indices (1-based), in sensor list order.
+ * Example: first sensor 3 channels → [1,2,3]; next sensor 2 channels → [4,5].
+ */
+function incrementalChannelIndicesForOrderedSensors(
+  orderedSelections: SelectedSensor[],
+  availableSensors: SensorListItem[]
+): Array<{ sensorId: string; channelIndices: number[] | null }> {
+  let nextChannelStart = 1;
+  return orderedSelections.map((entry) => {
+    const sensor = availableSensors.find((candidate) => candidate.id === entry.sensorId);
+    const channelCount = sensor?.channelCount ?? 0;
+    if (channelCount <= 0) {
+      return { sensorId: entry.sensorId, channelIndices: null };
+    }
+    const channelIndices = Array.from(
+      { length: channelCount },
+      (_, index) => nextChannelStart + index
+    );
+    nextChannelStart += channelCount;
+    return { sensorId: entry.sensorId, channelIndices };
+  });
+}
 
 export default function CreateExperimentPage() {
   const router = useRouter();
@@ -20,6 +65,24 @@ export default function CreateExperimentPage() {
   const [expandedSensors, setExpandedSensors] = useState<Set<string>>(new Set());
 
   const { data: sensors = [], isLoading: sensorsLoading } = trpc.sensors.getSensors.useQuery();
+
+  const sensors_dnd = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      setSelectedSensors((items) => {
+        const oldIndex = items.findIndex((i) => i.sensorId === active.id);
+        const newIndex = items.findIndex((i) => i.sensorId === over.id);
+        return arrayMove(items, oldIndex, newIndex);
+      });
+    }
+  };
 
   const createMutation = trpc.experiments.createExperiment.useMutation({
     onSuccess: (experiment) => {
@@ -66,11 +129,16 @@ export default function CreateExperimentPage() {
       toast.error("Experiment name must be at least 2 characters.");
       return;
     }
+    const sensorsPayload =
+      selectedSensors.length > 0
+        ? incrementalChannelIndicesForOrderedSensors(selectedSensors, sensors)
+        : undefined;
+
     await createMutation.mutateAsync({
       name: name.trim(),
       description: description.trim() || undefined,
       status,
-      sensors: selectedSensors.length > 0 ? selectedSensors : undefined,
+      sensors: sensorsPayload,
     });
   };
 
@@ -142,25 +210,34 @@ export default function CreateExperimentPage() {
 
           {/* Selected Sensors Summary */}
           {selectedSensorDetails.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {selectedSensorDetails.map((sensor) => (
-                sensor && (
-                  <div
-                    key={sensor.id}
-                    className="flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-medium text-primary"
-                  >
-                    <Activity className="h-3 w-3" />
-                    {sensor.name}
-                    <button
-                      type="button"
-                      onClick={() => removeSensor(sensor.id)}
-                      className="ml-1 rounded-full hover:text-destructive transition-colors"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
+            <div className="space-y-2">
+              <label className="text-xs font-semibold text-muted-foreground uppercase">
+                Arrangement (Drag to reorder)
+              </label>
+              <DndContext
+                sensors={sensors_dnd}
+                collisionDetection={closestCenter}
+                onDragEnd={handleDragEnd}
+              >
+                <SortableContext
+                  items={selectedSensors.map((s) => s.sensorId)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  <div className="flex flex-col gap-2">
+                    {selectedSensors.map((s) => {
+                      const sensor = sensors.find((sn) => sn.id === s.sensorId);
+                      if (!sensor) return null;
+                      return (
+                        <SortableItem
+                          key={sensor.id}
+                          sensor={sensor}
+                          onRemove={() => removeSensor(sensor.id)}
+                        />
+                      );
+                    })}
                   </div>
-                )
-              ))}
+                </SortableContext>
+              </DndContext>
             </div>
           )}
 
@@ -194,22 +271,20 @@ export default function CreateExperimentPage() {
                 return (
                   <div
                     key={sensor.id}
-                    className={`rounded-lg border transition-colors ${
-                      selected
-                        ? "border-primary/50 bg-primary/5"
-                        : "border-border bg-card/50 hover:bg-card"
-                    }`}
+                    className={`rounded-lg border transition-colors ${selected
+                      ? "border-primary/50 bg-primary/5"
+                      : "border-border bg-card/50 hover:bg-card"
+                      }`}
                   >
                     <div className="flex items-center gap-3 p-3">
                       {/* Checkbox */}
                       <button
                         type="button"
                         onClick={() => toggleSensor(sensor.id)}
-                        className={`flex h-5 w-5 flex-shrink-0 items-center justify-center rounded border transition-colors ${
-                          selected
-                            ? "border-primary bg-primary text-primary-foreground"
-                            : "border-border hover:border-primary"
-                        }`}
+                        className={`flex h-5 w-5 flex-shrink-0 items-center justify-center rounded border transition-colors ${selected
+                          ? "border-primary bg-primary text-primary-foreground"
+                          : "border-border hover:border-primary"
+                          }`}
                       >
                         {selected && <Plus className="h-3 w-3 rotate-45" />}
                       </button>
