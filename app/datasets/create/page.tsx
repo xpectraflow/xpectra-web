@@ -56,17 +56,19 @@ export default function CreateDatasetPage() {
 
   // Queries
   const { data: experiments = [], isLoading: loadingExperiments } = trpc.experiments.getExperiments.useQuery();
+  const { data: sensors = [] } = trpc.sensors.getSensors.useQuery();
 
   const selectedExperiment = experiments.find(e => e.id === selectedExperimentId);
   const availableChannels: ChannelInfo[] = [];
 
   if (selectedExperiment?.sensorConfig?.sensors) {
     selectedExperiment.sensorConfig.sensors.forEach(sConfig => {
+      const sensor = sensors.find(s => s.id === sConfig.sensorId);
       const indices = sConfig.channelIndices || [];
       indices.forEach((expIdx, localIdx) => {
         availableChannels.push({
           sensorId: sConfig.sensorId,
-          sensorName: `Sensor ${sConfig.sensorId.slice(0, 4)}`,
+          sensorName: sensor?.name || `Sensor ${sConfig.sensorId.slice(0, 4)}`,
           channelIndex: localIdx,
           experimentChannelIndex: expIdx,
         });

@@ -48,16 +48,29 @@ export const DataMapper: React.FC<DataMapperProps> = ({
     );
     if (tsHeader) newMapping.timestampColumn = tsHeader;
 
-    // Try to map channels
-    availableChannels.forEach(ch => {
-      // Look for exact matches or pattern matches like "SensorName ChX" or just "ChX"
-      const match = headers.find(h =>
-        h.toLowerCase() === `ch_${ch.experimentChannelIndex}`.toLowerCase() ||
-        h.toLowerCase() === `ch${ch.experimentChannelIndex}`.toLowerCase() ||
-        h.toLowerCase().includes(ch.sensorName.toLowerCase()) && h.toLowerCase().includes(`ch${ch.channelIndex + 1}`)
-      );
-      if (match) newMapping.channelMappings[ch.experimentChannelIndex] = match;
+    // Get non-timestamp headers for data mapping
+    const dataHeaders = headers.filter(h => h !== tsHeader);
+
+    console.log("Auto-mapping check:", {
+      totalHeaders: headers.length,
+      timestampColumn: tsHeader,
+      dataHeadersCount: dataHeaders.length,
+      availableChannelsCount: availableChannels.length
     });
+
+    // If data column count matches channel count, do sequential mapping
+    if (dataHeaders.length === availableChannels.length) {
+      availableChannels.forEach((ch, idx) => {
+        newMapping.channelMappings[ch.experimentChannelIndex] = dataHeaders[idx];
+      });
+      console.log("Sequential mapping applied.");
+    } else {
+      // Otherwise set all to null/ignore as requested
+      availableChannels.forEach(ch => {
+        newMapping.channelMappings[ch.experimentChannelIndex] = null;
+      });
+      console.log("Column mismatch. Setting channels to 'Ignore'.");
+    }
 
     setMapping(newMapping);
   }, [headers, availableChannels]);

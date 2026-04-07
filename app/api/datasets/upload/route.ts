@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
   });
 
   // 3. Proxy Stream to Go
-  const ingestUrl = process.env.INGEST_SERVICE_HTTP_URL || "http://telemetry-ingest:50052/ingest";
+  const ingestUrl = process.env.INGEST_SERVICE_HTTP_ADDR as string;
   
   const goReq = new Request(ingestUrl, {
     method: "POST",
