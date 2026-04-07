@@ -43,7 +43,7 @@ export const DataMapper: React.FC<DataMapperProps> = ({
     };
 
     // Try to find timestamp
-    const tsHeader = headers.find(h => 
+    const tsHeader = headers.find(h =>
       /time|date|ts|timestamp|clock/i.test(h)
     );
     if (tsHeader) newMapping.timestampColumn = tsHeader;
@@ -51,7 +51,7 @@ export const DataMapper: React.FC<DataMapperProps> = ({
     // Try to map channels
     availableChannels.forEach(ch => {
       // Look for exact matches or pattern matches like "SensorName ChX" or just "ChX"
-      const match = headers.find(h => 
+      const match = headers.find(h =>
         h.toLowerCase() === `ch_${ch.experimentChannelIndex}`.toLowerCase() ||
         h.toLowerCase() === `ch${ch.experimentChannelIndex}`.toLowerCase() ||
         h.toLowerCase().includes(ch.sensorName.toLowerCase()) && h.toLowerCase().includes(`ch${ch.channelIndex + 1}`)
@@ -141,21 +141,15 @@ export const DataMapper: React.FC<DataMapperProps> = ({
 
         {/* Preview Area */}
         <div className="lg:col-span-2 space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-              Data Preview <ChevronRight className="h-4 w-4 text-muted-foreground" />
-            </h3>
-            <span className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">First {rows.length} rows</span>
-          </div>
-          
           <div className="rounded-xl border border-border bg-card overflow-hidden shadow-sm">
-            <ExcelTable 
-              data={rows} 
+            <ExcelTable
+              data={rows}
               headers={headers}
+              title="Data Preview"
               className="border-0 shadow-none rounded-none"
             />
           </div>
-          
+
           <div className="bg-primary/5 rounded-lg border border-primary/10 p-4">
             <div className="flex items-start gap-3">
               <div className="mt-0.5 rounded-full bg-primary/20 p-1">
@@ -164,7 +158,7 @@ export const DataMapper: React.FC<DataMapperProps> = ({
               <div className="text-xs space-y-1">
                 <p className="font-semibold text-primary">Mapping Logic</p>
                 <p className="text-muted-foreground leading-relaxed">
-                  We'll extract values from the selected columns and store them in the TimescaleDB hypertable associated with your experiment. Ensure units (e.g., V, Pa, °C) match your sensor configuration.
+                  We'll extract values from the selected columns and store them in the database. Ensure units (e.g., V, Pa, °C) match your sensor configuration.
                 </p>
               </div>
             </div>

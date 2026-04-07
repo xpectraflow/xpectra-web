@@ -13,6 +13,7 @@ interface Cell {
 
 interface ExcelTableProps {
   data: string[][];
+  title?: string;
   headers?: string[];
   editable?: boolean;
   className?: string;
@@ -28,6 +29,7 @@ interface SelectionRange {
 
 export const ExcelTable: React.FC<ExcelTableProps> = ({
   data,
+  title = "Table Data",
   headers,
   editable = false,
   className,
@@ -74,6 +76,11 @@ export const ExcelTable: React.FC<ExcelTableProps> = ({
     e.stopPropagation();
     e.preventDefault();
     
+    // Save any pending changes if we were editing another cell
+    if (editingCell && (editingCell.row !== row || editingCell.col !== col)) {
+      handleEditSubmit();
+    }
+
     // Stop any ongoing drag selection
     setIsSelecting(false);
     setDraggedCell(null);
@@ -137,7 +144,12 @@ export const ExcelTable: React.FC<ExcelTableProps> = ({
 
   const handleMouseDown = (row: number, col: number, e: React.MouseEvent) => {
     if (!editable) return;
-    e.preventDefault(); // Prevent text selection
+    
+    // Check if we are currently editing another cell and save it
+    if (editingCell && (editingCell.row !== row || editingCell.col !== col)) {
+      handleEditSubmit();
+    }
+
     e.stopPropagation(); // Prevent event bubbling
     
     // Clear any existing text selection immediately
@@ -179,13 +191,13 @@ export const ExcelTable: React.FC<ExcelTableProps> = ({
     setDraggedCell(null);
   };
 
-  const handleEditSubmit = () => {
+  const handleEditSubmit = useCallback(() => {
     if (editingCell && onCellChange) {
       onCellChange(editingCell.row, editingCell.col, editValue);
     }
     setEditingCell(null);
     setEditValue("");
-  };
+  }, [editingCell, editValue, onCellChange]);
 
   const handleEditKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
@@ -389,7 +401,7 @@ export const ExcelTable: React.FC<ExcelTableProps> = ({
         }
       `}</style>
       <div className="flex justify-between items-center mb-4">
-        <h3 className="text-lg font-semibold text-foreground">Calibration Model</h3>
+        <h3 className="text-lg font-semibold text-foreground">{title}</h3>
         <div className="flex gap-2">
           <button
             onClick={copyToClipboard}
@@ -408,12 +420,12 @@ export const ExcelTable: React.FC<ExcelTableProps> = ({
 
       <div className={cn("border border-border rounded-lg overflow-hidden bg-background", isSelecting && "no-select")}>
         <div className="overflow-auto max-h-96">
-          <table className="w-full border-collapse">
+          <table className="w-full border-collapse table-fixed">
             <thead>
               <tr className="bg-muted">
                 <th 
                   onClick={handleTableHeaderClick}
-                  className="min-w-12 h-8 border border-border bg-muted/50 text-xs font-medium text-muted-foreground cursor-pointer hover:bg-muted/70"
+                  className="w-12 min-w-[48px] h-8 border border-border bg-muted/50 text-xs font-medium text-muted-foreground cursor-pointer hover:bg-muted/70"
                 >
                   Ch#
                 </th>
@@ -422,7 +434,7 @@ export const ExcelTable: React.FC<ExcelTableProps> = ({
                     key={colIndex}
                     onClick={(e) => handleColHeaderClick(colIndex, e)}
                     className={cn(
-                      "min-w-24 h-8 border border-border px-2 text-xs font-medium text-muted-foreground text-center cursor-pointer hover:bg-muted/70",
+                      "w-32 min-w-[128px] h-8 border border-border px-2 text-xs font-medium text-muted-foreground text-center cursor-pointer hover:bg-muted/70 truncate",
                       isColSelected(colIndex) && "border-t-2 border-b-2 border-primary"
                     )}
                   >
@@ -445,7 +457,7 @@ export const ExcelTable: React.FC<ExcelTableProps> = ({
                 >
                   <td 
                     onClick={(e) => handleRowHeaderClick(rowIndex, e)}
-                    className="min-w-12 h-8 border border-border bg-muted/50 text-xs font-medium text-muted-foreground text-center cursor-pointer hover:bg-muted/70"
+                    className="w-12 min-w-[48px] h-8 border border-border bg-muted/50 text-xs font-medium text-muted-foreground text-center cursor-pointer hover:bg-muted/70"
                   >
                     {rowIndex+1}
                   </td>
@@ -453,10 +465,10 @@ export const ExcelTable: React.FC<ExcelTableProps> = ({
                     <td
                       key={colIndex}
                       className={cn(
-                        "min-w-24 h-8 border border-border px-2 text-sm relative cursor-pointer text-center",
+                        "w-32 min-w-[128px] h-8 border border-border px-0 text-sm relative cursor-pointer text-center overflow-hidden",
                         "hover:bg-muted/50 transition-colors",
                         isCellSelected(rowIndex, colIndex) && "border-2 border-primary",
-                        editingCell?.row === rowIndex && editingCell?.col === colIndex && "p-0"
+                        editingCell?.row === rowIndex && editingCell?.col === colIndex && "bg-background"
                       )}
                       onClick={(e) => handleCellClick(rowIndex, colIndex, e)}
                       onDoubleClick={(e) => handleCellDoubleClick(rowIndex, colIndex, e)}
@@ -477,7 +489,7 @@ export const ExcelTable: React.FC<ExcelTableProps> = ({
                           autoFocus
                         />
                       ) : (
-                        <span className="truncate block">{cell}</span>
+                        <span className="truncate block w-full px-2">{cell}</span>
                       )}
                     </td>
                   ))}

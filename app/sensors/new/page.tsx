@@ -278,6 +278,7 @@ function CreateSensorForm() {
           <ExcelTable
             data={data}
             headers={headers}
+            title="Calibration Setup"
             editable={true}
             onCellChange={handleCellChange}
           />

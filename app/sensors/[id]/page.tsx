@@ -110,6 +110,7 @@ export default function ViewSensorPage() {
              <ExcelTable 
                data={data}
                headers={headers}
+               title="Calibration Metadata"
                editable={false}
                onCellChange={() => {}}
              />
