@@ -24,11 +24,19 @@ const packageDefinition = protoLoader.loadSync(PROTO_PATH, {
 const protoDescriptor = grpc.loadPackageDefinition(packageDefinition) as any;
 const telemetryPackage = protoDescriptor.xpectra.telemetry.v1;
 
-// Instantiate client singleton
-const grpcClient = new telemetryPackage.TelemetryService(
-  process.env.GRPC_LISTEN_ADDR as string,
-  grpc.credentials.createInsecure(),
-);
+// Instantiate client singleton lazily
+let grpcClient: any = null;
+
+function getGrpcClient() {
+  if (grpcClient) return grpcClient;
+  
+  const addr = process.env.GRPC_LISTEN_ADDR as string;
+  grpcClient = new telemetryPackage.TelemetryService(
+    addr,
+    grpc.credentials.createInsecure(),
+  );
+  return grpcClient;
+}
 
 export const ingestionRouter = createTRPCRouter({
   ingestCsvData: protectedProcedure
@@ -96,7 +104,8 @@ export const ingestionRouter = createTRPCRouter({
         const metadata = new grpc.Metadata();
         metadata.add("telemetry-ingest-key", input.telemetryIngestKey);
 
-        grpcClient.Submit(
+        const client = getGrpcClient();
+        client.Submit(
           {
             experiment_id: dataset.experimentId,
             dataset_id: input.runId,

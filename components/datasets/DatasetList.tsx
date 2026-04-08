@@ -42,7 +42,7 @@ export function DatasetList({
             <tr key={dataset.id} className="hover:bg-accent/60">
               <td className="px-4 py-3">
                 <Link
-                  href={`/experiments/${experimentId}/runs/${dataset.id}`}
+                  href={`/experiments/${experimentId}/datasets/${dataset.id}`}
                   className="font-medium text-card-foreground transition hover:text-primary"
                 >
                   {dataset.name}
@@ -55,7 +55,7 @@ export function DatasetList({
               <td className="px-4 py-3">
                 <div className="flex justify-end gap-2">
                   <Link
-                    href={`/experiments/${experimentId}/runs/${dataset.id}`}
+                    href={`/experiments/${experimentId}/datasets/${dataset.id}`}
                     className="rounded-md border border-input px-2.5 py-1 text-xs text-muted-foreground transition hover:bg-accent hover:text-accent-foreground"
                   >
                     Open
