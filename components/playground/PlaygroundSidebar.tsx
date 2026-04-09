@@ -164,7 +164,10 @@ function DatasetRow({
 
 function ExperimentDatasets({ experimentId }: { experimentId: string }) {
   const datasetsQuery = trpc.datasets.getDatasets.useQuery({ experimentId });
-  const datasets = datasetsQuery.data ?? [];
+  const rawDatasets = datasetsQuery.data ?? [];
+  const datasets = rawDatasets.filter(
+    (ds) => ds.status !== "failed" && (ds.rowCount ?? 0) > 0
+  );
   const [openDatasets, setOpenDatasets] = useState<Record<string, boolean>>({});
 
   function toggleDataset(id: string) {

@@ -199,27 +199,38 @@ export default function CreateDatasetPage() {
                 <div className="space-y-4">
                   <h2 className="text-lg font-semibold text-foreground">Target Experiment</h2>
                   <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
-                    {experiments.map((exp) => (
-                      <button
-                        key={exp.id}
-                        onClick={() => setSelectedExperimentId(exp.id)}
-                        className={cn(
-                          "w-full flex items-center justify-between p-3 rounded-xl border text-left transition-all",
-                          selectedExperimentId === exp.id 
-                            ? "border-primary bg-primary/5 shadow-sm"
-                            : "border-border bg-card hover:border-primary/30 hover:bg-accent"
-                        )}
-                      >
-                        <div className="flex items-center gap-3">
-                          <Activity className={cn("h-4 w-4", selectedExperimentId === exp.id ? "text-primary" : "text-muted-foreground")} />
-                          <div>
-                            <p className="text-sm font-semibold text-foreground">{exp.name}</p>
-                            <p className="text-xs text-muted-foreground">{exp.sensorConfig?.sensors?.length || 0} sensors configured</p>
+                    {loadingExperiments ? (
+                      <div className="flex items-center justify-center p-8 gap-2 text-muted-foreground">
+                        <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                        <p className="text-sm font-medium">Loading experiments...</p>
+                      </div>
+                    ) : experiments.length === 0 ? (
+                      <div className="p-8 text-center rounded-xl border border-dashed border-border bg-card/50">
+                        <p className="text-sm text-muted-foreground">No experiments found.</p>
+                      </div>
+                    ) : (
+                      experiments.map((exp) => (
+                        <button
+                          key={exp.id}
+                          onClick={() => setSelectedExperimentId(exp.id)}
+                          className={cn(
+                            "w-full flex items-center justify-between p-3 rounded-xl border text-left transition-all",
+                            selectedExperimentId === exp.id 
+                              ? "border-primary bg-primary/5 shadow-sm"
+                              : "border-border bg-card hover:border-primary/30 hover:bg-accent"
+                          )}
+                        >
+                          <div className="flex items-center gap-3">
+                            <Activity className={cn("h-4 w-4", selectedExperimentId === exp.id ? "text-primary" : "text-muted-foreground")} />
+                            <div>
+                              <p className="text-sm font-semibold text-foreground">{exp.name}</p>
+                              <p className="text-xs text-muted-foreground">{exp.sensorConfig?.sensors?.length || 0} sensors configured</p>
+                            </div>
                           </div>
-                        </div>
-                        {selectedExperimentId === exp.id && <Check className="h-4 w-4 text-primary" />}
-                      </button>
-                    ))}
+                          {selectedExperimentId === exp.id && <Check className="h-4 w-4 text-primary" />}
+                        </button>
+                      ))
+                    )}
                   </div>
                 </div>
               </div>
