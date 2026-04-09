@@ -1,4 +1,4 @@
-import { randomUUID } from "crypto";
+import { randomUUID, randomBytes } from "crypto";
 import { TRPCError } from "@trpc/server";
 import { and, asc, eq } from "drizzle-orm";
 import { z } from "zod";
@@ -61,6 +61,7 @@ export const channelsRouter = createTRPCRouter({
           name: input.name,
           unit: input.unit ?? null,
           dataType: input.dataType,
+          hypertableColName: `custom_${randomBytes(4).toString("hex")}`, // Placeholder for manually added
         })
         .returning();
 

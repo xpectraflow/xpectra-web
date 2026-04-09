@@ -332,11 +332,20 @@ export const channels = pgTable("channels", {
   datasetId: uuid("dataset_id")
            .notNull()
            .references(() => datasets.id, { onDelete: "cascade" }),
+
+  /** 
+   * The bridge to the hypertable column: "ch_0", "ch_1", etc. 
+   * Assigned sequentially at dataset creation.
+   */
+  hypertableColName: varchar("hypertable_col_name", { length: 64 }).notNull(),
+
   /** Links back to the source sensor channel (nullable — custom channels have no sensor). */
   sensorChannelId: uuid("sensor_channel_id").references(
     () => sensorChannels.id,
     { onDelete: "set null" },
   ),
+
+  /** Snapshot metadata — immune to future sensor edits or deletions */
   name:     text("name").notNull(),
   unit:     text("unit"),
   dataType: text("data_type").notNull().default("float"),

@@ -16,6 +16,7 @@ export async function GET(req: NextRequest) {
       where: (ds, { eq }) => eq(ds.id, runId),
       with: {
         experiment: true,
+        channels: true,
       },
     });
 
@@ -28,10 +29,16 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    // Extract indices from "ch_N" column names
+    const indices = (dataset.channels || [])
+      .map(ch => parseInt(ch.hypertableColName.replace("ch_", ""), 10))
+      .filter(idx => !isNaN(idx))
+      .sort((a, b) => a - b);
+
     return NextResponse.json({
       experimentId: dataset.experimentId,
       hypertableName: dataset.experiment.hypertableName,
-      channelIndices: dataset.experiment.sensorConfig?.sensors?.flatMap(s => s.channelIndices || []) || [],
+      channelIndices: indices,
     });
   } catch (error: any) {
     console.error("Dataset validation error", error);

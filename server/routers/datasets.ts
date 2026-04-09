@@ -1,8 +1,8 @@
 import { randomUUID, randomBytes } from "crypto";
 import { TRPCError } from "@trpc/server";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
-import { datasets, experiments } from "@/server/db/schema";
+import { datasets, experiments, channels, sensorChannels } from "@/server/db/schema";
 import {
   assertExperimentInOrganization,
   assertDatasetInOrganization,
@@ -70,23 +70,62 @@ export const datasetsRouter = createTRPCRouter({
 
     const datasetId = randomUUID();
 
-    const [createdDataset] = await ctx.db
-      .insert(datasets)
-      .values({
-        id: datasetId,
-        experimentId: input.experimentId,
-        name: input.name,
-        status: input.status,
-        telemetryIngestKey: hashedKey,
-      })
-      .returning();
+    return await ctx.db.transaction(async (tx) => {
+      const [createdDataset] = await tx
+        .insert(datasets)
+        .values({
+          id: datasetId,
+          experimentId: input.experimentId,
+          name: input.name,
+          status: input.status,
+          telemetryIngestKey: hashedKey,
+        })
+        .returning();
 
-    return {
-      ...createdDataset,
-      unhashedTelemetryIngestKey: unhashedKey,
-      hypertableName: experiment.hypertableName,
-      channelIndices: experiment.sensorConfig?.sensors?.flatMap(s => s.channelIndices || []) || [],
-    };
+      // --- Automatic Channel Snapshotting ---
+      const sensorsInConfig = experiment.sensorConfig?.sensors || [];
+      const flattenedSpecs = sensorsInConfig.flatMap(s => 
+        (s.channelIndices || []).map(idx => ({ sensorId: s.sensorId, internalIdx: idx }))
+      );
+
+      let globalChannelIndex = 0;
+      if (flattenedSpecs.length > 0) {
+        // 1. Fetch metadata for all sensors in the config to resolve names/units
+        const sensorIds = Array.from(new Set(flattenedSpecs.map(s => s.sensorId)));
+        const metaRecords = await tx.query.sensorChannels.findMany({
+          where: (sc, { and, inArray }) => and(
+            inArray(sc.sensorId, sensorIds)
+          )
+        });
+
+        // 2. Prepare and insert snapshot records
+        const channelValues = flattenedSpecs.map(spec => {
+          const meta = metaRecords.find(m => m.sensorId === spec.sensorId && m.channelIndex === spec.internalIdx);
+          const colName = `ch_${globalChannelIndex++}`;
+          
+          return {
+            id: randomUUID(),
+            datasetId: createdDataset.id,
+            sensorChannelId: meta?.id || null,
+            hypertableColName: colName,
+            name: meta?.name || `Channel ${spec.internalIdx}`,
+            unit: meta?.unit || null,
+            dataType: "float" as const,
+          };
+        });
+
+        if (channelValues.length > 0) {
+          await tx.insert(channels).values(channelValues);
+        }
+      }
+
+      return {
+        ...createdDataset,
+        unhashedTelemetryIngestKey: unhashedKey,
+        hypertableName: experiment.hypertableName,
+        channelIndices: Array.from({ length: globalChannelIndex }, (_, i) => i),
+      };
+    });
   }),
 
   getRunMetadata: publicProcedure.input(getRunMetadataInput).query(async ({ ctx, input }) => {
@@ -106,10 +145,21 @@ export const datasetsRouter = createTRPCRouter({
       throw new TRPCError({ code: "UNAUTHORIZED", message: "Invalid telemetry ingest key" });
     }
 
+    // Fetch snapshot channels instead of calculating from experiment config
+    const datasetChannels = await ctx.db.query.channels.findMany({
+      where: (ch, { eq }) => eq(ch.datasetId, dataset.id)
+    });
+
+    // Extract indices from "ch_N" column names for Go consumer compatibility
+    const indices = datasetChannels
+      .map(ch => parseInt(ch.hypertableColName.replace("ch_", ""), 10))
+      .filter(idx => !isNaN(idx))
+      .sort((a, b) => a - b);
+
     return {
       experimentId: dataset.experimentId,
       hypertableName: dataset.experiment.hypertableName,
-      channelIndices: dataset.experiment.sensorConfig?.sensors?.flatMap(s => s.channelIndices || []) || [],
+      channelIndices: indices,
     };
   }),
 

@@ -15,6 +15,13 @@
       "when": 1775477763578,
       "tag": "0001_left_lethal_legion",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1775749775179,
+      "tag": "0002_talented_moon_knight",
+      "breakpoints": true
     }
   ]
 }

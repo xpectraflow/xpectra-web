@@ -1,0 +1,1 @@
+ALTER TABLE "channels" ADD COLUMN "hypertable_col_name" varchar(64) NOT NULL;
