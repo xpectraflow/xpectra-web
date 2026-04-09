@@ -4,15 +4,9 @@ import { usePlayground, PlottedDataset } from "@/components/playground/Playgroun
 import { ChartPanel } from "@/components/playground/ChartPanel";
 import { SectionHeader } from "@/components/playground/SectionHeader";
 import { trpc } from "@/lib/trpc";
-import {
-  FlaskConical,
-  BarChart2,
-  Cpu,
-  Loader2,
-  X,
-  Database,
-  Hash,
-} from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import { useEffect, useRef, Suspense } from "react";
+import { FlaskConical, BarChart2, Cpu, Loader2, X, Database, Hash } from "lucide-react";
 import Link from "next/link";
 
 // ─── Empty states ─────────────────────────────────────────────────────────────
@@ -176,8 +170,41 @@ function TopBar({ title, subtitle }: { title?: string; subtitle?: string }) {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-export default function PlaygroundPage() {
-  const { selectedExperimentId, plottedDatasets } = usePlayground();
+function PlaygroundContent() {
+  const searchParams = useSearchParams();
+  const { selectedExperimentId, setSelectedExperimentId, plottedDatasets, plotAllChannels } = usePlayground();
+  const hasAutoPlotted = useRef(false);
+
+  const urlExpId = searchParams.get("experimentId");
+  const urlDsId = searchParams.get("datasetId");
+
+  // Sync selectedExperimentId with URL if present
+  useEffect(() => {
+    if (urlExpId && urlExpId !== selectedExperimentId) {
+      setSelectedExperimentId(urlExpId);
+    }
+  }, [urlExpId, selectedExperimentId, setSelectedExperimentId]);
+
+  // Handle auto-plotting from URL
+  const { data: autoDsData } = trpc.datasets.getDatasetById.useQuery(
+    { experimentId: urlExpId!, id: urlDsId! },
+    { enabled: !!urlExpId && !!urlDsId && !hasAutoPlotted.current }
+  );
+
+  useEffect(() => {
+    if (autoDsData && urlExpId && urlDsId && !hasAutoPlotted.current) {
+      // Check if already plotted
+      const isAlreadyPlotted = plottedDatasets.some(ds => ds.datasetId === urlDsId);
+      if (!isAlreadyPlotted) {
+        plotAllChannels({
+          datasetId: urlDsId,
+          datasetName: autoDsData.name,
+          experimentId: urlExpId,
+        });
+      }
+      hasAutoPlotted.current = true;
+    }
+  }, [autoDsData, urlExpId, urlDsId, plotAllChannels, plottedDatasets]);
 
   // Fetch experiment name for the top bar
   const experimentQuery = trpc.experiments.getExperimentById.useQuery(
@@ -218,5 +245,17 @@ export default function PlaygroundPage() {
         </div>
       )}
     </>
+  );
+}
+
+export default function PlaygroundPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex h-full w-full items-center justify-center bg-[#0e0e0e]">
+        <Loader2 className="h-8 w-8 animate-spin text-[#f97316]/50" />
+      </div>
+    }>
+      <PlaygroundContent />
+    </Suspense>
   );
 }

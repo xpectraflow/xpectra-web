@@ -8,36 +8,15 @@ import { ChannelList } from "@/components/channels/ChannelList";
 import { PageLayout } from "@/components/PageLayout";
 import { DatasetDetails } from "@/components/datasets/DatasetDetails";
 import { DatasetForm } from "@/components/datasets/DatasetForm";
-import { ChannelSelector } from "@/components/telemetry/ChannelSelector";
-import { MetricsPanel } from "@/components/telemetry/MetricsPanel";
-import { TelemetryChart } from "@/components/telemetry/TelemetryChart";
 import { TimeRangeSelector } from "@/components/telemetry/TimeRangeSelector";
 import { trpc } from "@/lib/trpc";
+import { FlaskConical, ArrowRight, Activity, Loader2 } from "lucide-react";
 
-type TimeRangePreset = "1h" | "6h" | "24h" | "7d";
-
-function rangeForPreset(preset: TimeRangePreset) {
-  const now = new Date();
-  const from = new Date(now);
-  if (preset === "1h") from.setHours(now.getHours() - 1);
-  if (preset === "6h") from.setHours(now.getHours() - 6);
-  if (preset === "24h") from.setDate(now.getDate() - 1);
-  if (preset === "7d") from.setDate(now.getDate() - 7);
-
-  return {
-    from: from.toISOString(),
-    to: now.toISOString(),
-    maxPointsPerChannel: 800,
-  };
-}
 
 export default function DatasetDetailsPage() {
   const params = useParams<{ experimentId: string; datasetId: string }>();
   const utils = trpc.useUtils();
   const [deletingChannelId, setDeletingChannelId] = useState<string | null>(null);
-  const [selectedPreset, setSelectedPreset] = useState<TimeRangePreset>("1h");
-  const [telemetryRange, setTelemetryRange] = useState(rangeForPreset("1h"));
-  const [selectedChannelIds, setSelectedChannelIds] = useState<string[]>([]);
 
   const datasetQuery = trpc.datasets.getDatasetById.useQuery({
     experimentId: params.experimentId,
@@ -48,30 +27,6 @@ export default function DatasetDetailsPage() {
     experimentId: params.experimentId,
     datasetId: params.datasetId,
   });
-
-  const effectiveSelectedChannelIds = useMemo(() => {
-    const channelIds = channelsQuery.data?.map((channel) => channel.id) ?? [];
-    if (channelIds.length === 0) {
-      return [] as string[];
-    }
-    if (selectedChannelIds.length === 0) {
-      return channelIds;
-    }
-
-    return selectedChannelIds.filter((channelId) => channelIds.includes(channelId));
-  }, [channelsQuery.data, selectedChannelIds]);
-
-  const telemetryQuery = trpc.telemetry.getTelemetryData.useQuery(
-    {
-      experimentId: params.experimentId,
-      datasetId: params.datasetId,
-      channelIds: effectiveSelectedChannelIds,
-      range: telemetryRange,
-    },
-    {
-      enabled: effectiveSelectedChannelIds.length > 0,
-    },
-  );
 
   const updateDatasetMutation = trpc.datasets.updateDataset.useMutation({
     onSuccess: async () => {
@@ -107,15 +62,24 @@ export default function DatasetDetailsPage() {
 
   return (
     <PageLayout
-      title="Dataset details"
-      description="Manage dataset state and channel definitions."
+      title="Dataset Management"
+      description="Verify ingestion vitals and prepare data for analysis."
       action={
-        <Link
-          href={`/experiments/${params.experimentId}`}
-          className="rounded-lg border border-input px-3 py-2 text-sm text-muted-foreground transition hover:bg-accent hover:text-accent-foreground"
-        >
-          Back to experiment
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            href={`/playground?experimentId=${params.experimentId}&datasetId=${params.datasetId}`}
+            className="flex items-center gap-2 rounded-lg bg-[#f97316] px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-orange-500/20 transition hover:bg-[#fb923c] focus:outline-none focus:ring-2 focus:ring-orange-500/50"
+          >
+            Import data to playground
+            <ArrowRight className="h-4 w-4" />
+          </Link>
+          <Link
+            href={`/experiments/${params.experimentId}`}
+            className="rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-muted-foreground transition hover:bg-white/10 hover:text-white"
+          >
+            Back to experiment
+          </Link>
+        </div>
       }
     >
       {datasetQuery.isLoading && <p className="text-sm text-muted-foreground">Loading dataset...</p>}
@@ -153,89 +117,94 @@ export default function DatasetDetailsPage() {
             }}
           />
 
-          <section className="space-y-4">
-            <h3 className="text-lg font-semibold text-white">Channels</h3>
+          <div className="grid gap-6 lg:grid-cols-3">
+            <div className="lg:col-span-2 space-y-6">
+              <section className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-semibold text-white">Configured Channels</h3>
+                  <span className="rounded-md bg-white/5 px-2 py-1 font-mono text-[10px] text-muted-foreground">
+                    {channelsQuery.data?.length ?? 0} TOTAL
+                  </span>
+                </div>
 
-            <ChannelForm
-              submitLabel="Add channel"
-              isSubmitting={createChannelMutation.isPending}
-              onSubmit={async (values) => {
-                await createChannelMutation.mutateAsync({
-                  experimentId: params.experimentId,
-                  datasetId: params.datasetId,
-                  name: values.name,
-                  unit: values.unit || null,
-                  dataType: values.dataType,
-                });
-              }}
-            />
+                {channelsQuery.isLoading && (
+                  <div className="flex items-center justify-center py-12">
+                     <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  </div>
+                )}
 
-            {channelsQuery.isLoading && (
-              <p className="text-sm text-muted-foreground">Loading channels...</p>
-            )}
+                {channelsQuery.data && (
+                  <ChannelList
+                    channels={channelsQuery.data}
+                    deletingId={deletingChannelId}
+                    onDelete={(channelId) => {
+                      setDeletingChannelId(channelId);
+                      deleteChannelMutation.mutate({
+                        experimentId: params.experimentId,
+                        datasetId: params.datasetId,
+                        id: channelId,
+                      });
+                    }}
+                  />
+                )}
+              </section>
+            </div>
 
-            {channelsQuery.error && (
-              <p className="rounded-lg border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive-foreground">
-                Failed to load channels: {channelsQuery.error.message}
-              </p>
-            )}
-
-            {channelsQuery.data && (
-              <ChannelList
-                channels={channelsQuery.data}
-                deletingId={deletingChannelId}
-                onDelete={(channelId) => {
-                  setDeletingChannelId(channelId);
-                  deleteChannelMutation.mutate({
-                    experimentId: params.experimentId,
-                    datasetId: params.datasetId,
-                    id: channelId,
-                  });
-                }}
-              />
-            )}
-          </section>
-
-          <section className="space-y-4">
-            <h3 className="text-lg font-semibold text-white">Telemetry</h3>
-
-            {channelsQuery.data && (
-              <div className="grid gap-4 lg:grid-cols-2">
-                <ChannelSelector
-                  channels={channelsQuery.data.map((channel) => ({
-                    id: channel.id,
-                    name: channel.name,
-                  }))}
-                  selectedChannelIds={effectiveSelectedChannelIds}
-                  onChange={setSelectedChannelIds}
-                />
-                <TimeRangeSelector
-                  selectedPreset={selectedPreset}
-                  onPresetChange={(preset, range) => {
-                    setSelectedPreset(preset);
-                    setTelemetryRange(range);
+            <div className="space-y-6">
+              <section className="rounded-2xl border border-white/5 bg-white/[0.02] p-6 space-y-4">
+                <div className="flex items-center gap-2 text-white font-semibold">
+                   <FlaskConical className="h-4 w-4 text-[#f97316]" />
+                   Dataset Controls
+                </div>
+                
+                <DatasetForm
+                  submitLabel="Update Vitals"
+                  isSubmitting={updateDatasetMutation.isPending}
+                  initialValues={{
+                    name: datasetQuery.data.name,
+                    status: datasetQuery.data.status as "queued" | "running" | "completed" | "failed",
+                  }}
+                  onSubmit={async (values) => {
+                    await updateDatasetMutation.mutateAsync({
+                      experimentId: params.experimentId,
+                      id: params.datasetId,
+                      name: values.name,
+                      status: values.status,
+                      startedAt: datasetQuery.data.startedAt
+                        ? new Date(datasetQuery.data.startedAt).toISOString()
+                        : null,
+                      endedAt: datasetQuery.data.endedAt
+                        ? new Date(datasetQuery.data.endedAt).toISOString()
+                        : null,
+                    });
                   }}
                 />
-              </div>
-            )}
+              </section>
 
-            {telemetryQuery.isLoading && (
-              <p className="text-sm text-muted-foreground">Loading telemetry...</p>
-            )}
-
-            {telemetryQuery.error && (
-              <p className="rounded-lg border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive-foreground">
-                Failed to load telemetry: {telemetryQuery.error.message}
-              </p>
-            )}
-
-            {telemetryQuery.data && (
-              <div className="space-y-4">
-                <TelemetryChart series={telemetryQuery.data.series} />
-                <MetricsPanel series={telemetryQuery.data.series} />
-              </div>
-            )}
-          </section>
+              <section className="rounded-2xl border border-white/5 bg-white/[0.02] p-6 space-y-4">
+                <div className="flex items-center gap-2 text-white font-semibold">
+                   <Activity className="h-4 w-4 text-[#f97316]" />
+                   Registration
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Define new sensory input mapping for this dataset record.
+                </p>
+                <ChannelForm
+                  submitLabel="Register Channel"
+                  isSubmitting={createChannelMutation.isPending}
+                  onSubmit={async (values) => {
+                    await createChannelMutation.mutateAsync({
+                      experimentId: params.experimentId,
+                      datasetId: params.datasetId,
+                      name: values.name,
+                      unit: values.unit || null,
+                      dataType: values.dataType,
+                    });
+                  }}
+                />
+              </section>
+            </div>
+          </div>
         </div>
       )}
     </PageLayout>

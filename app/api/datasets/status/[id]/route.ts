@@ -4,10 +4,10 @@ import { datasets } from "@/server/db/schema";
 import { eq } from "drizzle-orm";
 
 interface StatusUpdate {
-  status: "completed" | "failed";
-  rowCount: number;
-  startedAt: string;
-  endedAt: string;
+  status: "completed" | "failed" | "running" | "queued";
+  rowCount?: number;
+  startedAt?: string;
+  endedAt?: string;
 }
 
 export async function PATCH(
@@ -18,15 +18,17 @@ export async function PATCH(
   const body = (await req.json()) as StatusUpdate;
 
   try {
+    const updateData: any = {
+      status: body.status,
+      updatedAt: new Date(),
+    };
+    if (body.rowCount !== undefined) updateData.rowCount = body.rowCount;
+    if (body.startedAt) updateData.startedAt = new Date(body.startedAt);
+    if (body.endedAt) updateData.endedAt = new Date(body.endedAt);
+
     const [updated] = await db
       .update(datasets)
-      .set({
-        status: body.status,
-        rowCount: body.rowCount,
-        startedAt: new Date(body.startedAt),
-        endedAt: new Date(body.endedAt),
-        updatedAt: new Date(),
-      })
+      .set(updateData)
       .where(eq(datasets.id, id))
       .returning();
 
