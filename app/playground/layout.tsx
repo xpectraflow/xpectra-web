@@ -5,11 +5,23 @@ import { SessionProvider } from "next-auth/react";
 import { TrpcProvider } from "@/components/providers/TrpcProvider";
 import { DeviceProvider } from "@/contexts/DeviceContext";
 import { PlaygroundSidebar } from "@/components/playground/PlaygroundSidebar";
-import { PlaygroundContext, PlottedDataset } from "@/components/playground/PlaygroundContext";
+import { PlaygroundContext, PlottedDataset, VirtualChannel } from "@/components/playground/PlaygroundContext";
 
 function PlaygroundShell({ children }: { children: ReactNode }) {
   const [selectedExperimentId, setSelectedExperimentId] = useState<string | null>(null);
   const [plottedDatasets, setPlottedDatasets] = useState<PlottedDataset[]>([]);
+  const [virtualChannels, setVirtualChannels] = useState<VirtualChannel[]>([]);
+
+  const addVirtualChannel = useCallback((vc: Omit<VirtualChannel, "id">) => {
+    setVirtualChannels((prev) => [
+      ...prev,
+      { ...vc, id: "vc_" + crypto.randomUUID() },
+    ]);
+  }, []);
+
+  const removeVirtualChannel = useCallback((vcId: string) => {
+    setVirtualChannels((prev) => prev.filter((v) => v.id !== vcId));
+  }, []);
 
   const addPlot = useCallback((newPlot: Omit<PlottedDataset, "id">) => {
     setPlottedDatasets((prev) => {
@@ -41,6 +53,9 @@ function PlaygroundShell({ children }: { children: ReactNode }) {
         plottedDatasets,
         addPlot,
         removePlot,
+        virtualChannels,
+        addVirtualChannel,
+        removeVirtualChannel,
       }}
     >
       <div className="flex h-screen overflow-hidden bg-[#131313] text-foreground">

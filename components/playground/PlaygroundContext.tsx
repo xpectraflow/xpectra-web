@@ -12,6 +12,14 @@ export type PlottedDataset = {
   channelIds?: string[];
 };
 
+export type VirtualChannel = {
+  id: string;
+  datasetId: string;
+  experimentId: string;
+  name: string;
+  expression: string;
+};
+
 type PlaygroundContextValue = {
   selectedExperimentId: string | null;
   setSelectedExperimentId: (id: string) => void;
@@ -20,6 +28,10 @@ type PlaygroundContextValue = {
   plottedDatasets: PlottedDataset[];
   addPlot: (dataset: Omit<PlottedDataset, "id">) => void;
   removePlot: (plotId: string) => void;
+
+  virtualChannels: VirtualChannel[];
+  addVirtualChannel: (vc: Omit<VirtualChannel, "id">) => void;
+  removeVirtualChannel: (vcId: string) => void;
 };
 
 export const PlaygroundContext = createContext<PlaygroundContextValue>({
@@ -28,6 +40,9 @@ export const PlaygroundContext = createContext<PlaygroundContextValue>({
   plottedDatasets: [],
   addPlot: () => {},
   removePlot: () => {},
+  virtualChannels: [],
+  addVirtualChannel: () => {},
+  removeVirtualChannel: () => {},
 });
 
 export function usePlayground() {

@@ -18,6 +18,8 @@ import {
   Loader2,
   BarChart2,
   Hash,
+  FunctionSquare,
+  Plus,
 } from "lucide-react";
 
 /* ─── Types ─────────────────────────────────────────────────────────────────── */
@@ -46,23 +48,27 @@ function DatasetChannels({
   datasetId: string;
   datasetName: string;
 }) {
-  const { addPlot } = usePlayground();
+  const { addPlot, virtualChannels, addVirtualChannel } = usePlayground();
   const { menu, open: openMenu, close: closeMenu } = useContextMenu();
 
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [lastClickedId, setLastClickedId] = useState<string | null>(null);
+  
+  const [isAddingExpression, setIsAddingExpression] = useState(false);
+  const [expressionInput, setExpressionInput] = useState("");
 
   const channelsQuery = trpc.channels.getChannels.useQuery(
     { experimentId, datasetId },
     { enabled: true }
   );
   const channels = channelsQuery.data ?? [];
-
-  const handleChannelClick = (e: React.MouseEvent, channel: any) => {
+  const datasetVirtualChannels = virtualChannels.filter(vc => vc.datasetId === datasetId);
+  
+  const handleChannelClick = (e: React.MouseEvent, channelId: string) => {
     e.preventDefault();
     e.stopPropagation();
 
-    const id = channel.id;
+    const id = channelId;
 
     if (e.shiftKey && lastClickedId) {
       // Range selection
@@ -86,15 +92,15 @@ function DatasetChannels({
     setLastClickedId(id);
   };
 
-  const handleContextMenu = (e: React.MouseEvent, channel: any) => {
+  const handleContextMenu = (e: React.MouseEvent, id: string) => {
     e.preventDefault();
 
     // If we right-click an unselected item, select it alone
     let currentSelection = selectedIds;
-    if (!selectedIds.includes(channel.id)) {
-      currentSelection = [channel.id];
+    if (!selectedIds.includes(id)) {
+      currentSelection = [id];
       setSelectedIds(currentSelection);
-      setLastClickedId(channel.id);
+      setLastClickedId(id);
     }
 
     const items: ContextMenuItem[] = [
@@ -139,6 +145,21 @@ function DatasetChannels({
     openMenu(e, items);
   };
 
+  const handleAddExpression = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!expressionInput.trim()) return;
+    
+    addVirtualChannel({
+      datasetId,
+      experimentId,
+      name: expressionInput.trim(),
+      expression: expressionInput.trim()
+    });
+    setExpressionInput("");
+    setIsAddingExpression(false);
+  };
+
+
   if (channelsQuery.isLoading) {
     return (
       <div className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] text-muted-foreground">
@@ -165,6 +186,12 @@ function DatasetChannels({
 
   return (
     <div className="relative">
+      <datalist id={`channels-${datasetId}`}>
+        {channels.map((ch) => (
+          <option key={ch.id} value={ch.name} />
+        ))}
+      </datalist>
+
       {channels.map((ch) => {
         const isSelected = selectedIds.includes(ch.id);
         const isCollision = (nameCounts.get(ch.name) || 0) > 1;
@@ -175,8 +202,8 @@ function DatasetChannels({
         return (
           <div
             key={ch.id}
-            onClick={(e) => handleChannelClick(e, ch)}
-            onContextMenu={(e) => handleContextMenu(e, ch)}
+            onClick={(e) => handleChannelClick(e, ch.id)}
+            onContextMenu={(e) => handleContextMenu(e, ch.id)}
             className={`flex cursor-pointer select-none items-center gap-2 rounded px-3 py-1 text-[11px] transition-all ${isSelected
               ? "bg-[#f97316]/10 text-foreground ring-1 ring-inset ring-[#f97316]/30"
               : "text-muted-foreground/70 hover:bg-[#1c1b1b] hover:text-muted-foreground"
@@ -195,6 +222,53 @@ function DatasetChannels({
           </div>
         );
       })}
+
+      {datasetVirtualChannels.map((vc) => {
+        const isSelected = selectedIds.includes(vc.id);
+        return (
+          <div
+            key={vc.id}
+            onClick={(e) => handleChannelClick(e, vc.id)}
+            onContextMenu={(e) => handleContextMenu(e, vc.id)}
+            className={`flex cursor-pointer select-none items-center gap-2 rounded px-3 py-1 text-[11px] transition-all ${isSelected
+              ? "bg-[#f97316]/10 text-foreground ring-1 ring-inset ring-[#f97316]/30"
+              : "text-amber-500/70 hover:bg-[#1c1b1b] hover:text-amber-500"
+              }`}
+          >
+            <FunctionSquare
+              className={`h-2.5 w-2.5 shrink-0 ${isSelected ? "text-[#f97316]" : "text-amber-500/50"
+                }`}
+            />
+            <span className="flex-1 truncate" title={vc.expression}>
+              {vc.name}
+            </span>
+            <span className="font-mono text-[10px] opacity-40 text-amber-500/50">derived</span>
+          </div>
+        );
+      })}
+
+      {isAddingExpression ? (
+        <form onSubmit={handleAddExpression} className="px-3 py-1 mt-1">
+          <input
+            type="text"
+            autoFocus
+            list={`channels-${datasetId}`}
+            value={expressionInput}
+            onChange={(e) => setExpressionInput(e.target.value)}
+            onBlur={() => setIsAddingExpression(false)}
+            placeholder="e.g. Temp_1 - Temp_2"
+            className="w-full rounded border border-[#f97316]/50 bg-[#121212] px-2 py-1 text-[11px] text-foreground focus:outline-none focus:ring-1 focus:ring-[#f97316]"
+          />
+        </form>
+      ) : (
+        <button
+          className="flex items-center gap-1.5 w-full px-3 py-1.5 text-[10px] uppercase font-mono tracking-widest text-muted-foreground/50 hover:text-amber-500 transition-colors mt-1"
+          onClick={() => setIsAddingExpression(true)}
+        >
+          <Plus className="h-3 w-3" />
+          Create Expression
+        </button>
+      )}
 
       {menu && (
         <ContextMenu x={menu.x} y={menu.y} items={menu.items} onClose={closeMenu} />

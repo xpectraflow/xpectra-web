@@ -1,12 +1,66 @@
 "use client";
 
-import { useEffect, useRef, useCallback, useState } from "react";
+import { useEffect, useRef, useCallback, useState, useMemo } from "react";
 import ReactECharts from "echarts-for-react";
 import type { EChartsInstance } from "echarts-for-react";
 import * as echarts from "echarts";
-import { Loader2, AlertCircle, BarChart2, Link2, Link2Off } from "lucide-react";
+import { Loader2, AlertCircle, BarChart2, Link2, Link2Off, Activity } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { usePlaygroundTimeStore } from "@/stores/playgroundTime";
+import { usePlayground } from "@/components/playground/PlaygroundContext";
+
+// ─── Naive Radix-2 FFT ────────────────────────────────────────────────────────
+function computeFFT(dataArray: number[], dtMs: number) {
+  let n = dataArray.length;
+  if (n < 2) return { freq: [], mag: [] };
+
+  let power = Math.pow(2, Math.floor(Math.log2(n)));
+  let real = dataArray.slice(0, power);
+  let imag = new Array(power).fill(0);
+  n = power;
+
+  let i = 0, j = 0, k = 0, n2 = n / 2;
+  for (i = 1, j = 0; i < n; i++) {
+    let bit = n2;
+    while (j >= bit) { j -= bit; bit /= 2; }
+    j += bit;
+    if (i < j) {
+      let t = real[i]; real[i] = real[j]; real[j] = t;
+      t = imag[i]; imag[i] = imag[j]; imag[j] = t;
+    }
+  }
+  
+  for (k = 1; k < n; k *= 2) {
+    let theta = -Math.PI / k;
+    let wReal = Math.cos(theta);
+    let wImag = Math.sin(theta);
+    for (i = 0; i < n; i += 2 * k) {
+      let uReal = 1, uImag = 0;
+      for (j = 0; j < k; j++) {
+        let tReal = uReal * real[i + j + k] - uImag * imag[i + j + k];
+        let tImag = uReal * imag[i + j + k] + uImag * real[i + j + k];
+        real[i + j + k] = real[i + j] - tReal;
+        imag[i + j + k] = imag[i + j] - tImag;
+        real[i + j] += tReal;
+        imag[i + j] += tImag;
+        let nextUReal = uReal * wReal - uImag * wImag;
+        let nextUImag = uReal * wImag + uImag * wReal;
+        uReal = nextUReal; uImag = nextUImag;
+      }
+    }
+  }
+  
+  let mag = [];
+  let freq = [];
+  let fs = 1000 / dtMs; // Sample freq in Hz
+  
+  for (i = 0; i < n / 2; i++) { // only positive frequencies
+    mag.push(Math.sqrt(real[i]*real[i] + imag[i]*imag[i]) / n);
+    freq.push(i * (fs / n));
+  }
+  
+  return { freq, mag };
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -57,8 +111,31 @@ export function TelemetryChart({
   const containerRef = useRef<HTMLDivElement>(null);
   const isInView = useRef(false);
   const [chartInstance, setChartInstance] = useState<EChartsInstance | null>(null);
+  const [chartMode, setChartMode] = useState<"time" | "frequency">("time");
 
   const { startTime, endTime, linked, setTimeRange, toggleLinked } = usePlaygroundTimeStore();
+  const { virtualChannels } = usePlayground();
+
+  // Pick out virtual vs physical
+  const plottingVirtuals = virtualChannels.filter(vc => channelIds.includes(vc.id));
+  const plottingPhysicals = channelIds.filter(id => !id.startsWith("vc_"));
+
+  // Fetch channel metadata to resolve names in formulas
+  const channelsMetaQuery = trpc.channels.getChannels.useQuery(
+    { experimentId, datasetId },
+    { enabled: plottingVirtuals.length > 0 }
+  );
+
+  const neededPhysicalIds = new Set(plottingPhysicals);
+  if (channelsMetaQuery.data && plottingVirtuals.length > 0) {
+    const nameToId = new Map(channelsMetaQuery.data.map(c => [c.name, c.id]));
+    plottingVirtuals.forEach(vc => {
+      const names = vc.expression.match(/[a-zA-Z0-9_]+/g) || [];
+      names.forEach(n => {
+        if (nameToId.has(n)) neededPhysicalIds.add(nameToId.get(n)!);
+      });
+    });
+  }
 
   // ── Initialize time range from dataset if not yet set ──────────────────────
   const timeRangeQuery = trpc.telemetry.getDatasetTimeRange.useQuery(
@@ -93,12 +170,12 @@ export function TelemetryChart({
     {
       experimentId,
       datasetId,
-      channelIds,
+      channelIds: Array.from(neededPhysicalIds),
       startTime: startTime ?? 0,
       endTime: endTime ?? Date.now(),
     },
     {
-      enabled: !!startTime && !!endTime && channelIds.length > 0 && isInView.current,
+      enabled: !!startTime && !!endTime && neededPhysicalIds.size > 0 && isInView.current,
       refetchOnWindowFocus: false,
       staleTime: 0, // always re-fetch when time range changes
     }
@@ -152,8 +229,56 @@ export function TelemetryChart({
   );
 
   // ── Build ECharts option ──────────────────────────────────────────────────
-  const series = dataQuery.data?.series ?? [];
+  const baseSeries = dataQuery.data?.series ?? [];
   const rangeMs = (endTime ?? 0) - (startTime ?? 0);
+
+  // Generate resolved series (Evaluating Virtual Channels)
+  const resolvedSeries = useMemo(() => {
+    if (plottingVirtuals.length === 0) return baseSeries.filter(s => plottingPhysicals.includes(s.channelId));
+    
+    const scopeByName: Record<string, any[]> = {};
+    const idToName = new Map(channelsMetaQuery.data?.map(c => [c.id, c.name]));
+    baseSeries.forEach(s => {
+      const name = idToName.get(s.channelId);
+      if (name) scopeByName[name] = s.points;
+    });
+
+    const newSeries = baseSeries.filter(s => plottingPhysicals.includes(s.channelId));
+
+    plottingVirtuals.forEach(vc => {
+      try {
+        const names = vc.expression.match(/[a-zA-Z0-9_]+/g) || [];
+        const uniqueNames = Array.from(new Set(names));
+        const requiredArrays = uniqueNames.filter(n => scopeByName[n] && scopeByName[n].length > 0);
+        
+        if (requiredArrays.length === 0) return;
+        
+        const fn = new Function(...requiredArrays, `return ${vc.expression};`);
+        const refPoints = scopeByName[requiredArrays[0]];
+        
+        const vcPoints = refPoints.map((refPt, i) => {
+          const args = requiredArrays.map(n => scopeByName[n][i]?.avg ?? 0);
+          const val = fn(...args);
+          return { t: refPt.t, min: val, max: val, avg: val, count: 1 };
+        });
+
+        newSeries.push({
+          channelId: vc.id,
+          channelName: vc.name,
+          unit: "Derived",
+          dataType: "float8",
+          hypertableColName: "virtual",
+          points: vcPoints
+        });
+      } catch (e) {
+        console.error("Virtual channel eval error", e);
+      }
+    });
+
+    return newSeries;
+  }, [baseSeries, plottingVirtuals, plottingPhysicals, channelsMetaQuery.data]);
+
+  const series = resolvedSeries;
 
   // ── Absolute scale calculation (for zoom out headroom) ─────────────────────
   const absMin = timeRangeQuery.data?.startTime;
@@ -195,33 +320,55 @@ export function TelemetryChart({
     const displayName = labelMap?.[s.channelId] ?? s.channelName;
     const yAxisIndex = s.unit ? Math.max(0, unitAxes.indexOf(s.unit)) : 0;
 
-    return [
-      // Min/max band
-      {
-        name: `${displayName} range`,
-        type: "line",
-        data: s.points.map((p) => [p.t, p.min, p.max]),
-        lineStyle: { opacity: 0, width: 0 },
-        areaStyle: { opacity: 0.12, color },
-        itemStyle: { opacity: 0 },
-        yAxisIndex,
-        tooltip: { show: false },
-        silent: true,
-        showSymbol: false,
-        z: 1,
-      },
-      // Avg line
-      {
-        name: displayName,
-        type: "line",
-        data: s.points.map((p) => [p.t, p.avg]),
-        lineStyle: { color, width: 1.5 },
-        itemStyle: { color },
-        showSymbol: false,
-        yAxisIndex,
-        z: 2,
-      },
-    ];
+    // Time Mode
+    if (chartMode === "time") {
+      return [
+        {
+          name: `${displayName} range`,
+          type: "line",
+          data: s.points.map((p) => [p.t, p.min, p.max]),
+          lineStyle: { opacity: 0, width: 0 },
+          areaStyle: { opacity: 0.12, color },
+          itemStyle: { opacity: 0 },
+          yAxisIndex,
+          tooltip: { show: false },
+          silent: true,
+          showSymbol: false,
+          z: 1,
+        },
+        {
+          name: displayName,
+          type: "line",
+          data: s.points.map((p) => [p.t, p.avg]),
+          lineStyle: { color, width: 1.5 },
+          itemStyle: { color },
+          showSymbol: false,
+          yAxisIndex,
+          z: 2,
+        },
+      ];
+    }
+    
+    // Frequency Mode
+    if (s.points.length > 2) {
+       // Estimate delta t
+       const dtMs = Math.max(1, s.points[1].t - s.points[0].t);
+       const freqs = computeFFT(s.points.map(p => p.avg), dtMs);
+       const fftData = freqs.freq.map((f, i) => [f, freqs.mag[i]]);
+       return [
+         {
+           name: displayName + " (FFT)",
+           type: "line",
+           data: fftData,
+           lineStyle: { color, width: 1.5 },
+           itemStyle: { color },
+           showSymbol: false,
+           yAxisIndex,
+           z: 2,
+         }
+       ]
+    }
+    return [];
   });
 
   const chartOption = {
@@ -278,7 +425,7 @@ export function TelemetryChart({
 
     grid: { left: 60, right: unitAxes.length > 1 ? 60 : 12, top: 10, bottom: 80 },
 
-    xAxis: {
+    xAxis: chartMode === "time" ? {
       type: "time",
       min: bufferedMin,
       max: bufferedMax,
@@ -289,11 +436,17 @@ export function TelemetryChart({
         formatter: autoTimeFormatter(rangeMs),
       },
       splitLine: { show: false },
+    } : {
+      type: "value",
+      name: "Hz",
+      axisLine: { lineStyle: { color: "#27272a" } },
+      axisLabel: { color: "#71717a", fontSize: 10 },
+      splitLine: { show: false },
     },
 
     yAxis: yAxes,
 
-    dataZoom: [
+    dataZoom: chartMode === "time" ? [
       {
         type: "inside",
         filterMode: "none",
@@ -316,6 +469,20 @@ export function TelemetryChart({
         handleStyle: { color: "#f97316" },
         textStyle: { color: "#71717a", fontSize: 9 },
       },
+    ] : [
+      {
+        type: "inside",
+      },
+      {
+        type: "slider",
+        bottom: 10,
+        height: 24,
+        borderColor: "#27272a",
+        filterMode: "none",
+        backgroundColor: "#131313",
+        handleStyle: { color: "#f97316" },
+        textStyle: { color: "#71717a", fontSize: 9 },
+      }
     ],
     series: echartsSeries,
   };
@@ -326,14 +493,29 @@ export function TelemetryChart({
 
   return (
     <div ref={containerRef} style={{ height: height ? `${height}px` : "100%" }} className="relative w-full overflow-hidden telemetry-chart-container">
-      {/* Sync toggle */}
-      <button
-        onClick={toggleLinked}
-        className="absolute right-2 top-2 z-10 rounded p-1 text-muted-foreground hover:bg-[#1c1b1b] hover:text-foreground transition"
-        title={linked ? "Zoom sync: ON (click to unlink)" : "Zoom sync: OFF (click to link)"}
-      >
-        {linked ? <Link2 className="h-3.5 w-3.5 text-[#f97316]" /> : <Link2Off className="h-3.5 w-3.5" />}
-      </button>
+      {/* Top right overlays */}
+      <div className="absolute right-2 top-2 z-10 flex items-center gap-1">
+        <button
+          onClick={() => setChartMode(chartMode === "time" ? "frequency" : "time")}
+          className={`rounded px-1.5 py-1 text-[10px] uppercase font-mono tracking-widest transition flex items-center gap-1 ${
+            chartMode === "frequency" ? "bg-[#f97316]/20 text-[#f97316]" : "text-muted-foreground hover:bg-[#1c1b1b] hover:text-foreground"
+          }`}
+          title="Toggle Time / Frequency Domain"
+        >
+          <Activity className="h-3 w-3" />
+          {chartMode === "time" ? "Freq" : "Time"}
+        </button>
+
+        {chartMode === "time" && (
+          <button
+            onClick={toggleLinked}
+            className="rounded p-1 text-muted-foreground hover:bg-[#1c1b1b] hover:text-foreground transition"
+            title={linked ? "Zoom sync: ON (click to unlink)" : "Zoom sync: OFF (click to link)"}
+          >
+            {linked ? <Link2 className="h-3.5 w-3.5 text-[#f97316]" /> : <Link2Off className="h-3.5 w-3.5" />}
+          </button>
+        )}
+      </div>
 
       {/* Loading overlay */}
       {isLoading && (
