@@ -3,6 +3,7 @@
 import { useEffect, useRef, useCallback, useState } from "react";
 import ReactECharts from "echarts-for-react";
 import type { EChartsInstance } from "echarts-for-react";
+import * as echarts from "echarts";
 import { Loader2, AlertCircle, BarChart2, Link2, Link2Off } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { usePlaygroundTimeStore } from "@/stores/playgroundTime";
@@ -72,6 +73,19 @@ export function TelemetryChart({
     }
   }, [timeRangeQuery.data, initTimeRange]);
 
+  // ── Sync group connection (Hover/Tooltip sync) ──────────────────────────
+  useEffect(() => {
+    const chart = echartsRef.current;
+    if (chart && linked) {
+      // Connect to the synchronized group
+      chart.group = "playground-sync";
+      echarts.connect("playground-sync");
+    } else if (chart) {
+      // Unlink from the group
+      chart.group = "";
+    }
+  }, [linked]);
+
   // ── Fetch bucketed data — re-fires on every startTime/endTime change ───────
   const dataQuery = trpc.telemetry.getChannelData.useQuery(
     {
@@ -109,22 +123,31 @@ export function TelemetryChart({
 
   // ── Handle dataZoom → update global store (Tier 2: viewport-aware) ────────
   const handleDataZoom = useCallback(
-    (params: any) => {
+    () => {
+      // If we are linked, we want to update the global time store
+      // so other charts can pick it up and re-fetch high-res data.
       if (!linked) return;
+      
       const chart = echartsRef.current;
       if (!chart) return;
 
-      // ECharts emits startValue/endValue in time axis units (epoch ms)
       const option = chart.getOption() as any;
       const dz = option.dataZoom?.[0];
       if (!dz) return;
 
-      const xAxis = option.xAxis?.[0];
-      const min = xAxis?.min ?? startTime;
-      const max = xAxis?.max ?? endTime;
+      // startValue and endValue are the absolute domain values (timestamps)
+      const newStart = dz.startValue;
+      const newEnd = dz.endValue;
 
-      if (typeof min === "number" && typeof max === "number") {
-        setTimeRange(min, max);
+      if (typeof newStart === "number" && typeof newEnd === "number") {
+        // Debounce or check for meaningful change to avoid infinite loops
+        // ECharts emits many zoom events; only push if it's a real shift
+        const currentStart = startTime ?? 0;
+        const currentEnd = endTime ?? 0;
+        
+        if (Math.abs(newStart - currentStart) > 1 || Math.abs(newEnd - currentEnd) > 1) {
+          setTimeRange(newStart, newEnd);
+        }
       }
     },
     [linked, startTime, endTime, setTimeRange]
@@ -200,10 +223,42 @@ export function TelemetryChart({
 
     tooltip: {
       trigger: "axis",
-      axisPointer: { type: "cross", snap: true },
+      axisPointer: {
+        type: "cross",
+        label: {
+          backgroundColor: "#1c1b1b",
+          color: "#e4e4e7",
+          fontSize: 10,
+        },
+      },
       backgroundColor: "#1c1b1b",
       borderColor: "#27272a",
       textStyle: { color: "#e4e4e7", fontSize: 11 },
+      // Show values for all series in the tooltip
+      confine: true,
+    },
+
+    axisPointer: {
+      link: { xAxisIndex: "all" },
+      show: true,
+      type: "cross",
+      snap: true,
+      lineStyle: {
+        color: "#f97316",
+        width: 1,
+        type: "dashed",
+      },
+      crossStyle: {
+        color: "#f97316",
+        width: 1,
+        type: "dashed",
+      },
+      label: {
+        show: true,
+        backgroundColor: "#27272a",
+        color: "#f97316",
+        fontSize: 10,
+      },
     },
 
     legend: {
