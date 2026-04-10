@@ -20,19 +20,13 @@ function EmptyState() {
       </div>
       <div>
         <h2 className="font-['Manrope',sans-serif] text-lg font-semibold text-foreground">
-          Select an experiment
+          Select dataset from the sidebar
         </h2>
         <p className="mt-1 max-w-xs text-sm text-muted-foreground">
-          Pick an experiment from the sidebar, then right-click a dataset and choose{" "}
-          <span className="text-foreground">Plot all channels</span> to start your analysis.
+          Pick an experiment in the sidebar, then right-click a dataset and choose{" "}
+          <span className="text-foreground">Plot channels</span> to visualize your telemetry data.
         </p>
       </div>
-      <Link
-        href="/experiments"
-        className="mt-2 rounded bg-[#1c1b1b] px-4 py-2 text-xs font-medium text-muted-foreground ring-1 ring-[#27272a] transition hover:bg-[#201f1f] hover:text-foreground"
-      >
-        Browse experiments →
-      </Link>
     </div>
   );
 }
