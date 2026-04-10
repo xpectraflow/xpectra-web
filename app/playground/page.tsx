@@ -54,7 +54,7 @@ function NoDatasetsPlottedState() {
 // ─── Plotted dataset block ────────────────────────────────────────────────────
 
 function PlottedDatasetBlock({ dataset }: { dataset: PlottedDataset }) {
-  const { removePlot } = usePlayground();
+  const { removePlot, virtualChannels } = usePlayground();
 
   // Fetch channels so we know their IDs and can assign colors
   const channelsQuery = trpc.channels.getChannels.useQuery({
@@ -63,15 +63,29 @@ function PlottedDatasetBlock({ dataset }: { dataset: PlottedDataset }) {
   });
 
   const rawChannels = channelsQuery.data ?? [];
+  const datasetVirtuals = virtualChannels.filter(vc => vc.datasetId === dataset.datasetId);
+
+  // Merge physical and virtual lists
+  const allAvailableChannels = [
+    ...rawChannels,
+    ...datasetVirtuals.map(vc => ({
+      id: vc.id,
+      name: vc.name,
+      sensorName: "Virtual",
+      unit: "Derived",
+      dataType: "float8",
+      hypertableColName: "virtual"
+    }))
+  ];
 
   // Filter channels if a specific subset was requested
   const channels = dataset.channelIds
-    ? rawChannels.filter(ch => dataset.channelIds?.includes(ch.id))
-    : rawChannels;
+    ? allAvailableChannels.filter(ch => dataset.channelIds?.includes(ch.id))
+    : allAvailableChannels;
 
   // Assign a stable color per channel from the palette
   const colorMap: Record<string, string> = {};
-  rawChannels.forEach((ch, i) => {
+  allAvailableChannels.forEach((ch, i) => {
     colorMap[ch.id] = CHART_PALETTE[i % CHART_PALETTE.length];
   });
 
@@ -88,8 +102,8 @@ function PlottedDatasetBlock({ dataset }: { dataset: PlottedDataset }) {
   const labelMap: Record<string, string> = {};
   channels.forEach((ch) => {
     const isCollision = (nameCounts.get(ch.name) || 0) > 1;
-    labelMap[ch.id] = isCollision && ch.sensorName
-      ? `${ch.sensorName} · ${ch.name}`
+    labelMap[ch.id] = isCollision && ch.sensorName && ch.sensorName !== "Virtual"
+      ? `${ch.sensorName}.${ch.name}`
       : ch.name;
   });
 

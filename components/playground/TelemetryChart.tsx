@@ -128,11 +128,17 @@ export function TelemetryChart({
 
   const neededPhysicalIds = new Set(plottingPhysicals);
   if (channelsMetaQuery.data && plottingVirtuals.length > 0) {
-    const nameToId = new Map(channelsMetaQuery.data.map(c => [c.name, c.id]));
+    const allChannels = channelsMetaQuery.data;
     plottingVirtuals.forEach(vc => {
-      const names = vc.expression.match(/[a-zA-Z0-9_]+/g) || [];
-      names.forEach(n => {
-        if (nameToId.has(n)) neededPhysicalIds.add(nameToId.get(n)!);
+      const tokens = vc.expression.match(/[a-zA-Z0-9_\.]+/g) || [];
+      tokens.forEach(token => {
+        // Try exact match on sensor.channel or short channel name, normalized
+        const match = allChannels.find(c => {
+          const normalizedShort = c.name.replace(/[^a-zA-Z0-9_\.]+/g, "_");
+          const normalizedFull = `${c.sensorName}.${c.name}`.replace(/[^a-zA-Z0-9_\.]+/g, "_");
+          return normalizedShort === token || normalizedFull === token;
+        });
+        if (match) neededPhysicalIds.add(match.id);
       });
     });
   }
@@ -189,8 +195,10 @@ export function TelemetryChart({
       ([entry]) => {
         if (entry.isIntersecting && !isInView.current) {
           isInView.current = true;
-          // Trigger re-fetch by invalidating manually
-          dataQuery.refetch();
+          // Trigger re-fetch by invalidating manually if there are channels
+          if (neededPhysicalIds.size > 0) {
+            dataQuery.refetch();
+          }
         }
       },
       { threshold: 0.1 }
@@ -236,28 +244,53 @@ export function TelemetryChart({
   const resolvedSeries = useMemo(() => {
     if (plottingVirtuals.length === 0) return baseSeries.filter(s => plottingPhysicals.includes(s.channelId));
     
-    const scopeByName: Record<string, any[]> = {};
-    const idToName = new Map(channelsMetaQuery.data?.map(c => [c.id, c.name]));
-    baseSeries.forEach(s => {
-      const name = idToName.get(s.channelId);
-      if (name) scopeByName[name] = s.points;
-    });
+    const allChannels = channelsMetaQuery.data ?? [];
+    const idToData = new Map(baseSeries.map(s => [s.channelId, s.points]));
 
     const newSeries = baseSeries.filter(s => plottingPhysicals.includes(s.channelId));
 
     plottingVirtuals.forEach(vc => {
       try {
-        const names = vc.expression.match(/[a-zA-Z0-9_]+/g) || [];
-        const uniqueNames = Array.from(new Set(names));
-        const requiredArrays = uniqueNames.filter(n => scopeByName[n] && scopeByName[n].length > 0);
+        const tokens = vc.expression.match(/[a-zA-Z0-9_\.]+/g) || [];
+        const uniqueTokens = Array.from(new Set(tokens));
         
-        if (requiredArrays.length === 0) return;
+        // Map each token used in the expression to its data
+        const tokenToData = new Map<string, any[]>();
+        uniqueTokens.forEach(t => {
+           const channelMatch = allChannels.find(c => {
+             const normalizedShort = c.name.replace(/[^a-zA-Z0-9_\.]+/g, "_");
+             const normalizedFull = `${c.sensorName}.${c.name}`.replace(/[^a-zA-Z0-9_\.]+/g, "_");
+             return normalizedShort === t || normalizedFull === t;
+           });
+           if (channelMatch && idToData.has(channelMatch.id)) {
+             tokenToData.set(t, idToData.get(channelMatch.id)!);
+           }
+        });
+
+        if (tokenToData.size === 0) return;
         
-        const fn = new Function(...requiredArrays, `return ${vc.expression};`);
-        const refPoints = scopeByName[requiredArrays[0]];
+        // Pre-process expression to make it valid JS (dots to underscores)
+        // and map arguments to those safe names
+        const sortedTokens = Array.from(tokenToData.keys()).sort((a,b) => b.length - a.length);
+        let transformedExpr = vc.expression;
+        const argNames: string[] = [];
+        const argData: any[][] = [];
+
+        sortedTokens.forEach((token, i) => {
+           const safeName = `_arg_${i}`;
+           // Replace only whole tokens
+           const escapedToken = token.replace(/\./g, '\\.');
+           const regex = new RegExp(`\\b${escapedToken}\\b`, 'g');
+           transformedExpr = transformedExpr.replace(regex, safeName);
+           argNames.push(safeName);
+           argData.push(tokenToData.get(token)!);
+        });
+        
+        const fn = new Function(...argNames, `return ${transformedExpr};`);
+        const refPoints = argData[0];
         
         const vcPoints = refPoints.map((refPt, i) => {
-          const args = requiredArrays.map(n => scopeByName[n][i]?.avg ?? 0);
+          const args = argData.map(dataArr => dataArr[i]?.avg ?? 0);
           const val = fn(...args);
           return { t: refPt.t, min: val, max: val, avg: val, count: 1 };
         });
