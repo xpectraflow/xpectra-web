@@ -11,6 +11,7 @@ interface SidebarItemProps {
   count?: number;
 }
 
+
 export function SidebarItem({
   href,
   icon: Icon,
@@ -18,7 +19,9 @@ export function SidebarItem({
   count,
 }: SidebarItemProps) {
   const pathname = usePathname();
-  const isActive = pathname === href;
+  const isActive = href === '/' 
+    ? pathname === '/' 
+    : pathname === href || pathname?.startsWith(href + '/');
 
   return (
     <Link

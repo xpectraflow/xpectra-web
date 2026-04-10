@@ -1,7 +1,7 @@
 ﻿'use client';
 
 import { PageLayout } from '@/components/PageLayout';
-import { Plus, Database, Zap, ArrowRight, Server } from 'lucide-react';
+import { Plus, Database, Zap, ArrowRight, Gamepad } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
@@ -93,11 +93,11 @@ export default function Home() {
                 <ArrowRight className="h-4 w-4" />
               </Link>
               <Link
-                href="/clusters"
+                href="/playground"
                 className="flex w-full items-center justify-center gap-2 rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
               >
-                <Server className="h-4 w-4" />
-                View Clusters
+                <Gamepad className="h-4 w-4" />
+                Go to Playground
                 <ArrowRight className="h-4 w-4" />
               </Link>
             </div>
