@@ -7,6 +7,7 @@ import { organizationsRouter } from "@/server/routers/organizations";
 import { telemetryRouter } from "@/server/routers/telemetry";
 import { sensorsRouter } from "@/server/routers/sensors";
 import { ingestionRouter } from "@/server/routers/ingestion";
+import { rulesRouter } from "@/server/routers/rules";
 
 export const appRouter = createTRPCRouter({
   auth: authRouter,
@@ -17,6 +18,7 @@ export const appRouter = createTRPCRouter({
   telemetry: telemetryRouter,
   sensors: sensorsRouter,
   ingestion: ingestionRouter,
+  rules: rulesRouter,
 });
 
 export type AppRouter = typeof appRouter;

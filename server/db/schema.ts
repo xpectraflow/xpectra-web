@@ -10,6 +10,7 @@ import {
   uniqueIndex,
   uuid,
   varchar,
+  boolean,
 } from "drizzle-orm/pg-core";
 
 const timestamps = {
@@ -237,6 +238,12 @@ export const experiments = pgTable(
      */
     sensorConfig: jsonb("sensor_config").$type<SensorConfig>(),
 
+    /**
+     * Reusable validation policies (rules) attached to this experiment.
+     * References rules.id via array for MVP simplicity.
+     */
+    ruleIds: uuid("rule_ids").array().notNull().default([]),
+
     ...timestamps,
   },
   (table) => ({
@@ -353,6 +360,40 @@ export const channels = pgTable("channels", {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Rules / Policies
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Reusable validation logic that can be attached to experiments.
+ * Follows a policy-based model (similar to AWS Roles).
+ */
+export const rules = pgTable("rules", {
+  id: uuid("id").primaryKey(),
+  organizationId: uuid("organisation_id")
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  description: text("description"),
+
+  /** 
+   * Rule category.
+   * Values: 'THRESHOLD' | 'STATISTICAL' | 'AVAILABILITY'
+   */
+  type: text("type").notNull().default("THRESHOLD"),
+
+  /** 
+   * Rule parameters (e.g. { stdDevMultiplier: 3 } or { min: 0, max: 100 })
+   */
+  config: jsonb("config").$type<Record<string, unknown>>().notNull().default({}),
+
+  /** 
+   * If true, this is a system-provided template that cannot be deleted.
+   */
+  isManaged: boolean("is_managed").notNull().default(false),
+
+  ...timestamps,
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Relations
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -404,6 +445,13 @@ export const experimentsRelations = relations(experiments, ({ one, many }) => ({
   datasets: many(datasets),
 }));
 
+export const rulesRelations = relations(rules, ({ one }) => ({
+  organization: one(organizations, {
+    fields: [rules.organizationId],
+    references: [organizations.id],
+  }),
+}));
+
 export const datasetsRelations = relations(datasets, ({ one, many }) => ({
   experiment: one(experiments, {
     fields:     [datasets.experimentId],
@@ -451,3 +499,28 @@ export const channelsRelations = relations(channels, ({ one }) => ({
 // );
 // SELECT add_compression_policy('hyper_channel_data',
 //   compress_after => INTERVAL '3 days');
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Default Rules Templates
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const DEFAULT_RULE_TEMPLATES = [
+  {
+    name: "3-Sigma Outlier Detection",
+    type: "STATISTICAL",
+    description: "Flags data points that exceed 3 times the standard deviation from the moving average.",
+    config: { stdDevMultiplier: 3 },
+  },
+  {
+    name: "Safety Ceiling",
+    type: "THRESHOLD",
+    description: "Ensures telemetry values remain below a fixed safety limit.",
+    config: { max: 100 },
+  },
+  {
+    name: "Sensor Flatline Monitor",
+    type: "AVAILABILITY",
+    description: "Alerts if a sensor signal remains constant (zero variance) for an extended period.",
+    config: { varianceThreshold: 0.0001 },
+  },
+];

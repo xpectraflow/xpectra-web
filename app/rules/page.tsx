@@ -1,230 +1,169 @@
-﻿'use client';
+'use client';
 
 import { useState } from 'react';
 import { PageLayout } from '@/components/PageLayout';
-
-const rules = [
-  {
-    id: '1',
-    name: 'Ingest MOSDAC Satellite Feed',
-    dataset: 'MOSDAC',
-    cluster: 'Default Processing Cluster',
-    schedule: 'Continuous',
-    status: 'Running',
-  },
-  {
-    id: '2',
-    name: 'Aggregate AQI Hourly Metrics',
-    dataset: 'AQI',
-    cluster: 'Batch Analytics Cluster',
-    schedule: 'Hourly',
-    status: 'Scheduled',
-  },
-  {
-    id: '3',
-    name: 'Validate Sensor Schema',
-    dataset: 'All datasets',
-    cluster: 'Default Processing Cluster',
-    schedule: 'On device add',
-    status: 'Paused',
-  },
-];
+import { Search, Plus, Shield, Activity, Settings, Edit3, Trash2, FlaskConical } from 'lucide-react';
+import { CreateRuleDialog } from '@/components/rules/CreateRuleDialog';
+import { trpc } from '@/lib/trpc';
+import { toast } from 'sonner';
 
 export default function RulesPage() {
-  const [selectedRule, setselectedRule] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'Running':
-        return 'bg-green-900/30 text-green-300';
-      case 'Scheduled':
-        return 'bg-primary/20 text-primary';
-      case 'Paused':
-        return 'bg-accent text-muted-foreground';
-      default:
-        return 'bg-accent text-muted-foreground';
+  const utils = trpc.useUtils();
+  const rulesQuery = trpc.rules.getRules.useQuery();
+
+  const deleteMutation = trpc.rules.deleteRule.useMutation({
+    onSuccess: () => {
+      toast.success('Policy deleted');
+      utils.rules.getRules.invalidate();
+    },
+    onError: (err) => toast.error(err.message),
+  });
+
+  const filteredRules = rulesQuery.data?.filter((rule) =>
+    rule.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    rule.description?.toLowerCase().includes(searchQuery.toLowerCase())
+  ) ?? [];
+
+  const getIcon = (type: string) => {
+    switch (type) {
+      case 'STATISTICAL': return <Activity className="h-4 w-4 text-sky-400" />;
+      case 'THRESHOLD': return <Settings className="h-4 w-4 text-[#f97316]" />;
+      case 'AVAILABILITY': return <Shield className="h-4 w-4 text-emerald-400" />;
+      default: return <Settings className="h-4 w-4 text-muted-foreground" />;
     }
   };
 
   return (
-    <PageLayout title="Rules" description="Data processing rules operating on datasets">
-      <div className="overflow-hidden rounded-lg border border-border">
-        <table className="w-full">
-          <thead className="border-b border-border bg-card/50">
-            <tr>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                Rule Name
-              </th>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                Dataset
-              </th>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                Cluster
-              </th>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                Schedule
-              </th>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                Status
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border">
-            {rules.map((rule) => (
-              <tr
-                key={rule.id}
-                onClick={() => setselectedRule(rule.id)}
-                className="cursor-pointer transition-colors hover:bg-card/50"
-              >
-                <td className="px-4 py-3 text-sm text-foreground">{rule.name}</td>
-                <td className="px-4 py-3 text-sm text-muted-foreground">{rule.dataset}</td>
-                <td className="px-4 py-3 text-sm text-muted-foreground">
-                  {rule.cluster}
-                </td>
-                <td className="px-4 py-3 text-sm text-muted-foreground">
-                  {rule.schedule}
-                </td>
-                <td className="px-4 py-3">
-                  <span
-                    className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${getStatusColor(
-                      rule.status
-                    )}`}
-                  >
-                    {rule.status}
-                  </span>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+    <PageLayout
+      title="Rules"
+      description="Manage telemetry validation rules and attach them to experiments."
+      action={  
+        <button
+          onClick={() => setIsDialogOpen(true)}
+          className="flex items-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground transition hover:opacity-90 shadow-lg shadow-primary/10"
+        >
+          <Plus className="h-4 w-4" />
+          New rule
+        </button>
+      }
+    >
+      <div className="space-y-6">
+        {/* Search Bar */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <input
+            type="text"
+            placeholder="Search policies by name or condition..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full rounded-lg border border-border bg-card py-2.5 pl-10 pr-4 text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-[#f97316]/50 focus:outline-none focus:ring-4 focus:ring-[#f97316]/10 transition-all font-['Manrope',sans-serif]"
+          />
+        </div>
+
+        {/* Policies List */}
+        {rulesQuery.isLoading ? (
+          <div className="flex h-64 items-center justify-center">
+            <div className="flex flex-col items-center gap-2">
+              <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
+              <p className="text-sm text-muted-foreground">Fetching policies...</p>
+            </div>
+          </div>
+        ) : filteredRules.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-border bg-card/50 p-20 text-center">
+            <Shield className="mx-auto h-12 w-12 text-muted-foreground/20" />
+            <p className="mt-4 text-sm text-muted-foreground">No policies found matching your criteria.</p>
+          </div>
+        ) : (
+          <div className="overflow-hidden rounded-xl border border-border bg-card">
+            <table className="min-w-full divide-y divide-border text-sm">
+              <thead className="bg-muted/40">
+                <tr className="text-left text-xs uppercase tracking-wider text-muted-foreground">
+                  <th className="px-4 py-3">Policy Name</th>
+                  <th className="px-4 py-3">Type</th>
+                  <th className="px-4 py-3">Condition</th>
+                  <th className="px-4 py-3">Scope</th>
+                  <th className="px-4 py-3">Updated</th>
+                  <th className="px-4 py-3 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {filteredRules.map((rule) => (
+                  <tr key={rule.id} className="hover:bg-accent/30 transition-colors">
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <div className={`rounded-lg p-1.5 ${rule.isManaged ? 'bg-[#1c1b1b]' : 'bg-muted/30'}`}>
+                          {getIcon(rule.type)}
+                        </div>
+                        <div>
+                          <p className="font-medium text-foreground">{rule.name}</p>
+                          {rule.description && (
+                            <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">
+                              {rule.description}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                        {rule.type}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 font-mono text-xs text-foreground">
+                      {rule.type === 'STATISTICAL' && `${(rule.config as any).stdDevMultiplier}σ`}
+                      {rule.type === 'THRESHOLD' && `${(rule.config as any).min ?? '-'}-${(rule.config as any).max ?? '-'}`}
+                      {rule.type === 'AVAILABILITY' && (rule.config as any).maxGapSeconds ? `${(rule.config as any).maxGapSeconds}s` : 'Pulse'}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest ${rule.isManaged
+                            ? "bg-[#f97316]/10 text-[#f97316] border-[#f97316]/30"
+                            : "bg-emerald-500/10 text-emerald-500 border-emerald-500/30"
+                          }`}
+                      >
+                        {rule.isManaged ? "Managed" : "Custom"}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground text-xs">
+                      {new Date(rule.updatedAt).toLocaleDateString()}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex justify-end gap-1.5">
+                        {!rule.isManaged && (
+                          <>
+                            <button className="inline-flex items-center gap-1 rounded-md border border-input px-2 py-1 text-xs text-muted-foreground transition hover:bg-accent hover:text-accent-foreground">
+                              <Edit3 className="h-3.5 w-3.5" /> Edit
+                            </button>
+                            <button
+                              onClick={() => deleteMutation.mutate({ id: rule.id })}
+                              disabled={deleteMutation.isPending}
+                              className="inline-flex items-center gap-1 rounded-md border border-destructive/40 px-2 py-1 text-xs text-destructive-foreground transition hover:bg-destructive/10 disabled:opacity-50"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                              {deleteMutation.isPending ? "..." : "Delete"}
+                            </button>
+                          </>
+                        )}
+                        {rule.isManaged && (
+                          <span className="text-[10px] text-muted-foreground/30 font-medium italic">Read-only template</span>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
-      {/* Rule Details Modal (Read-only) */}
-      {selectedRule && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-2xl rounded-lg border border-border bg-card p-6 shadow-xl">
-            <div className="mb-6 flex items-center justify-between">
-              <h2 className="text-xl font-semibold text-foreground">Rule Details</h2>
-              <button
-                onClick={() => setselectedRule(null)}
-                className="rounded-lg p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-              >
-                ✕
-              </button>
-            </div>
-
-            {(() => {
-              const rule = rules.find((j) => j.id === selectedRule);
-              if (!rule) return null;
-
-              return (
-                <div className="space-y-6">
-                  <div className="space-y-4 rounded-lg border border-border bg-background/50 p-4">
-                    <div className="flex justify-between">
-                      <span className="text-sm font-medium text-muted-foreground">
-                        Rule Name
-                      </span>
-                      <span className="text-sm text-foreground">{rule.name}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm font-medium text-muted-foreground">
-                        Dataset
-                      </span>
-                      <span className="text-sm text-muted-foreground">{rule.dataset}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm font-medium text-muted-foreground">
-                        Cluster
-                      </span>
-                      <span className="text-sm text-muted-foreground">{rule.cluster}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm font-medium text-muted-foreground">
-                        Schedule
-                      </span>
-                      <span className="text-sm text-muted-foreground">{rule.schedule}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm font-medium text-muted-foreground">
-                        Status
-                      </span>
-                      <span
-                        className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${getStatusColor(
-                          rule.status
-                        )}`}
-                      >
-                        {rule.status}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Execution Timeline */}
-                  <div>
-                    <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-                      Execution Timeline
-                    </h3>
-                    <div className="space-y-4 rounded-lg border border-border bg-background/50 p-4">
-                      <div className="relative flex items-start gap-4">
-                        <div className="flex h-2 w-2 items-center justify-center">
-                          <div className="h-2 w-2 rounded-full bg-primary"></div>
-                        </div>
-                        <div className="flex-1">
-                          <div className="text-sm font-medium text-foreground">
-                            Rule created
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            2024-01-15 10:30:00 UTC
-                          </div>
-                        </div>
-                      </div>
-                      <div className="relative flex items-start gap-4">
-                        <div className="flex h-2 w-2 items-center justify-center">
-                          <div className="h-2 w-2 rounded-full bg-primary"></div>
-                        </div>
-                        <div className="flex-1">
-                          <div className="text-sm font-medium text-foreground">
-                            Scheduled
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            2024-01-15 10:35:00 UTC
-                          </div>
-                        </div>
-                      </div>
-                      <div className="relative flex items-start gap-4">
-                        <div className="flex h-2 w-2 items-center justify-center">
-                          <div className="h-2 w-2 rounded-full bg-green-500"></div>
-                        </div>
-                        <div className="flex-1">
-                          <div className="text-sm font-medium text-foreground">
-                            Last dataset
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            2024-01-20 14:22:00 UTC
-                          </div>
-                        </div>
-                      </div>
-                      <div className="relative flex items-start gap-4">
-                        <div className="flex h-2 w-2 items-center justify-center">
-                          <div className="h-2 w-2 rounded-full bg-green-500"></div>
-                        </div>
-                        <div className="flex-1">
-                          <div className="text-sm font-medium text-foreground">
-                            Last success
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            2024-01-20 14:22:00 UTC
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              );
-            })()}
-          </div>
-        </div>
-      )}
+      {isDialogOpen && <CreateRuleDialog onClose={() => setIsDialogOpen(false)} />}
     </PageLayout>
   );
 }
+
+
 
