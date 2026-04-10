@@ -120,15 +120,15 @@ function PlottedDatasetBlock({ dataset }: { dataset: PlottedDataset }) {
         </p>
       ) : isOverlay ? (
         /* OVERLAY MODE: All channels in one chart */
-        <div className="rounded-lg bg-[#1c1b1b] p-6 ring-1 ring-[#27272a]">
-          <div className="mb-4 flex flex-wrap gap-4">
+        <div className="rounded-lg bg-[#121212] p-4 ring-1 ring-[#27272a]">
+          <div className="mb-3 flex flex-wrap gap-3">
             {channels.map((ch) => (
               <div key={ch.id} className="flex items-center gap-2">
                 <span
                   className="h-2 w-2 rounded-full shrink-0"
                   style={{ background: colorMap[ch.id] }}
                 />
-                <span className="text-xs font-medium text-foreground">{ch.name}</span>
+                <span className="text-[11px] font-medium text-foreground">{ch.name}</span>
                 {ch.unit && (
                   <span className="font-mono text-[9px] text-muted-foreground/40 italic">
                     [{ch.unit}]
@@ -142,15 +142,15 @@ function PlottedDatasetBlock({ dataset }: { dataset: PlottedDataset }) {
             datasetId={dataset.datasetId}
             channelIds={channels.map((c) => c.id)}
             colorMap={colorMap}
-            height={450} // Taller for overlaid data
+            height={600} // SIGNIFICANTLY TALLER for immersive overlay
           />
         </div>
       ) : (
         /* SEPARATE MODE: Grid of individual charts */
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-2">
+        <div className="grid gap-4 md:grid-cols-1 lg:grid-cols-2 xl:grid-cols-2">
           {channels.map((ch) => (
-            <div key={ch.id} className="group rounded-lg bg-[#1c1b1b] p-5 ring-1 ring-[#27272a] transition hover:ring-[#f97316]/20">
-              <div className="mb-3 flex items-center gap-2">
+            <div key={ch.id} className="group rounded-lg bg-[#121212] p-2 ring-1 ring-[#27272a] transition hover:ring-[#f97316]/20">
+              <div className="mb-2 flex items-center gap-2 px-2 pt-1">
                 <span
                   className="h-3 w-3 rounded-sm shrink-0"
                   style={{ background: colorMap[ch.id] }}
@@ -169,7 +169,7 @@ function PlottedDatasetBlock({ dataset }: { dataset: PlottedDataset }) {
                 datasetId={dataset.datasetId}
                 channelIds={[ch.id]}
                 colorMap={colorMap}
-                height={180}
+                height={350} // MUCH TALLER for better resolution
               />
             </div>
           ))}
@@ -270,16 +270,16 @@ function PlaygroundContent() {
       ) : plottedDatasets.length === 0 ? (
         <NoDatasetsPlottedState />
       ) : (
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-3 lg:p-4">
           <SectionHeader
             title="Analysis Canvas"
             subtitle="Zoom any chart to re-fetch at higher resolution · Scroll syncs all charts"
             badge={`${plottedDatasets.length} dataset${plottedDatasets.length !== 1 ? "s" : ""}`}
           />
 
-          <div className="mt-4 space-y-2">
+          <div className="mt-2 space-y-4">
             {plottedDatasets.map((ds) => (
-              <PlottedDatasetBlock key={ds.datasetId} dataset={ds} />
+              <PlottedDatasetBlock key={ds.id} dataset={ds} />
             ))}
           </div>
         </div>
