@@ -1,12 +1,12 @@
 "use client";
 
 import { usePlayground, PlottedDataset } from "@/components/playground/PlaygroundContext";
-import { ChartPanel } from "@/components/playground/ChartPanel";
 import { SectionHeader } from "@/components/playground/SectionHeader";
+import { TelemetryChart, CHART_PALETTE } from "@/components/playground/TelemetryChart";
 import { trpc } from "@/lib/trpc";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useRef, Suspense } from "react";
-import { FlaskConical, BarChart2, Cpu, Loader2, X, Database, Hash } from "lucide-react";
+import { FlaskConical, BarChart2, Cpu, Loader2, X, Database } from "lucide-react";
 import Link from "next/link";
 
 // ─── Empty states ─────────────────────────────────────────────────────────────
@@ -56,64 +56,24 @@ function NoDatasetsPlottedState() {
   );
 }
 
-// ─── Channel chart panel ──────────────────────────────────────────────────────
-
-import { ChannelDataChart } from "@/components/playground/ChannelDataChart";
-
-function ChannelChartList({
-  experimentId,
-  datasetId,
-}: {
-  experimentId: string;
-  datasetId: string;
-}) {
-  const channelsQuery = trpc.channels.getChannels.useQuery({ experimentId, datasetId });
-  const channels = channelsQuery.data ?? [];
-
-  if (channelsQuery.isLoading) {
-    return (
-      <div className="flex items-center justify-center gap-2 py-8 text-muted-foreground">
-        <Loader2 className="h-4 w-4 animate-spin" />
-        <span className="text-sm">Loading channels…</span>
-      </div>
-    );
-  }
-
-  if (channels.length === 0) {
-    return (
-      <div className="flex items-center justify-center gap-2 py-8 text-muted-foreground/50">
-        <Hash className="h-4 w-4" />
-        <span className="text-sm">No channels in this dataset</span>
-      </div>
-    );
-  }
-
-  return (
-    <div className="grid gap-4 md:grid-cols-2">
-      {channels.map((ch) => (
-        <ChartPanel
-          key={ch.id}
-          title={ch.name}
-          badge={ch.unit ?? "—"}
-          subtitle={ch.dataType}
-          minHeight={180}
-        >
-          <ChannelDataChart
-            datasetId={datasetId}
-            channelCol={ch.hypertableColName}
-            channelName={ch.name}
-            unit={ch.unit}
-          />
-        </ChartPanel>
-      ))}
-    </div>
-  );
-}
-
 // ─── Plotted dataset block ────────────────────────────────────────────────────
 
 function PlottedDatasetBlock({ dataset }: { dataset: PlottedDataset }) {
   const { removePlottedDataset } = usePlayground();
+
+  // Fetch channels so we know their IDs and can assign colors
+  const channelsQuery = trpc.channels.getChannels.useQuery({
+    experimentId: dataset.experimentId,
+    datasetId: dataset.datasetId,
+  });
+
+  const channels = channelsQuery.data ?? [];
+
+  // Assign a stable color per channel from the palette
+  const colorMap: Record<string, string> = {};
+  channels.forEach((ch, i) => {
+    colorMap[ch.id] = CHART_PALETTE[i % CHART_PALETTE.length];
+  });
 
   return (
     <div className="mb-8">
@@ -124,7 +84,7 @@ function PlottedDatasetBlock({ dataset }: { dataset: PlottedDataset }) {
           {dataset.datasetName}
         </h2>
         <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground/50">
-          All channels
+          {channels.length} channels
         </span>
         <button
           type="button"
@@ -137,10 +97,47 @@ function PlottedDatasetBlock({ dataset }: { dataset: PlottedDataset }) {
         </button>
       </div>
 
-      <ChannelChartList
-        experimentId={dataset.experimentId}
-        datasetId={dataset.datasetId}
-      />
+      {channelsQuery.isLoading ? (
+        <div className="flex items-center justify-center gap-2 py-8 text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          <span className="text-sm">Loading channels…</span>
+        </div>
+      ) : channels.length === 0 ? (
+        <p className="py-6 text-center font-mono text-xs text-muted-foreground/40">
+          No channels registered for this dataset
+        </p>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2">
+          {channels.map((ch) => (
+            <div key={ch.id} className="rounded bg-[#1c1b1b] p-4">
+              {/* Chart header */}
+              <div className="mb-2 flex items-center gap-2">
+                <span
+                  className="h-2.5 w-2.5 rounded-full shrink-0"
+                  style={{ background: colorMap[ch.id] }}
+                />
+                <span className="font-['Manrope',sans-serif] text-sm font-semibold text-foreground">
+                  {ch.name}
+                </span>
+                {ch.unit && (
+                  <span className="rounded bg-[#131313] px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+                    {ch.unit}
+                  </span>
+                )}
+              </div>
+
+              {/* The chart — one channel per panel, full smart-fetch */}
+              <TelemetryChart
+                experimentId={dataset.experimentId}
+                datasetId={dataset.datasetId}
+                channelIds={[ch.id]}
+                colorMap={colorMap}
+                height={200}
+              />
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -179,7 +176,7 @@ function PlaygroundContent() {
   const hasAutoPlotted = useRef(false);
 
   const urlExpId = searchParams.get("experimentId");
-  const urlDsId = searchParams.get("datasetId");
+  const urlDsId  = searchParams.get("datasetId");
 
   // Sync selectedExperimentId with URL if present
   useEffect(() => {
@@ -196,8 +193,7 @@ function PlaygroundContent() {
 
   useEffect(() => {
     if (autoDsData && urlExpId && urlDsId && !hasAutoPlotted.current) {
-      // Check if already plotted
-      const isAlreadyPlotted = plottedDatasets.some(ds => ds.datasetId === urlDsId);
+      const isAlreadyPlotted = plottedDatasets.some((ds) => ds.datasetId === urlDsId);
       if (!isAlreadyPlotted) {
         plotAllChannels({
           datasetId: urlDsId,
@@ -236,7 +232,7 @@ function PlaygroundContent() {
         <div className="flex-1 overflow-y-auto p-6">
           <SectionHeader
             title="Analysis Canvas"
-            subtitle="Right-click datasets in the sidebar to add more"
+            subtitle="Zoom any chart to re-fetch at higher resolution · Scroll syncs all charts"
             badge={`${plottedDatasets.length} dataset${plottedDatasets.length !== 1 ? "s" : ""}`}
           />
 
