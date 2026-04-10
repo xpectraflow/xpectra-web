@@ -67,65 +67,24 @@ export const datasetsRouter = createTRPCRouter({
 
     const unhashedKey = randomBytes(32).toString("hex");
     const hashedKey = await bcrypt.hash(unhashedKey, 10);
-
     const datasetId = randomUUID();
 
-    return await ctx.db.transaction(async (tx) => {
-      const [createdDataset] = await tx
-        .insert(datasets)
-        .values({
-          id: datasetId,
-          experimentId: input.experimentId,
-          name: input.name,
-          status: input.status,
-          telemetryIngestKey: hashedKey,
-        })
-        .returning();
+    const [createdDataset] = await ctx.db
+      .insert(datasets)
+      .values({
+        id: datasetId,
+        experimentId: input.experimentId,
+        name: input.name,
+        status: input.status,
+        telemetryIngestKey: hashedKey,
+      })
+      .returning();
 
-      // --- Automatic Channel Snapshotting ---
-      const sensorsInConfig = experiment.sensorConfig?.sensors || [];
-      const flattenedSpecs = sensorsInConfig.flatMap(s => 
-        (s.channelIndices || []).map(idx => ({ sensorId: s.sensorId, internalIdx: idx }))
-      );
-
-      let globalChannelIndex = 0;
-      if (flattenedSpecs.length > 0) {
-        // 1. Fetch metadata for all sensors in the config to resolve names/units
-        const sensorIds = Array.from(new Set(flattenedSpecs.map(s => s.sensorId)));
-        const metaRecords = await tx.query.sensorChannels.findMany({
-          where: (sc, { and, inArray }) => and(
-            inArray(sc.sensorId, sensorIds)
-          )
-        });
-
-        // 2. Prepare and insert snapshot records
-        const channelValues = flattenedSpecs.map(spec => {
-          const meta = metaRecords.find(m => m.sensorId === spec.sensorId && m.channelIndex === spec.internalIdx);
-          const colName = `ch_${globalChannelIndex++}`;
-          
-          return {
-            id: randomUUID(),
-            datasetId: createdDataset.id,
-            sensorChannelId: meta?.id || null,
-            hypertableColName: colName,
-            name: meta?.name || `Channel ${spec.internalIdx}`,
-            unit: meta?.unit || null,
-            dataType: "float" as const,
-          };
-        });
-
-        if (channelValues.length > 0) {
-          await tx.insert(channels).values(channelValues);
-        }
-      }
-
-      return {
-        ...createdDataset,
-        unhashedTelemetryIngestKey: unhashedKey,
-        hypertableName: experiment.hypertableName,
-        channelIndices: Array.from({ length: globalChannelIndex }, (_, i) => i),
-      };
-    });
+    return {
+      ...createdDataset,
+      unhashedTelemetryIngestKey: unhashedKey,
+      hypertableName: experiment.hypertableName,
+    };
   }),
 
   getRunMetadata: publicProcedure.input(getRunMetadataInput).query(async ({ ctx, input }) => {
