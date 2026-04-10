@@ -37,7 +37,7 @@ export function ChartPanel({
         </div>
       </div>
 
-      <div style={{ minHeight }}>{children}</div>
+      <div style={{ minHeight, height: minHeight, position: "relative" }}>{children}</div>
     </div>
   );
 }

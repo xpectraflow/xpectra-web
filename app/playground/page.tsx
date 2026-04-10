@@ -58,6 +58,8 @@ function NoDatasetsPlottedState() {
 
 // ─── Channel chart panel ──────────────────────────────────────────────────────
 
+import { ChannelDataChart } from "@/components/playground/ChannelDataChart";
+
 function ChannelChartList({
   experimentId,
   datasetId,
@@ -96,11 +98,12 @@ function ChannelChartList({
           subtitle={ch.dataType}
           minHeight={180}
         >
-          {/* Placeholder — real streaming data would go here */}
-          <div className="flex h-full items-center justify-center gap-2 text-muted-foreground/30">
-            <BarChart2 className="h-5 w-5" />
-            <span className="font-mono text-xs">Awaiting data stream</span>
-          </div>
+          <ChannelDataChart
+            datasetId={datasetId}
+            channelCol={ch.hypertableColName}
+            channelName={ch.name}
+            unit={ch.unit}
+          />
         </ChartPanel>
       ))}
     </div>
