@@ -4,10 +4,11 @@ import { useEffect, useRef, useCallback, useState, useMemo } from "react";
 import ReactECharts from "echarts-for-react";
 import type { EChartsInstance } from "echarts-for-react";
 import * as echarts from "echarts";
-import { Loader2, AlertCircle, BarChart2, Link2, Link2Off, Activity } from "lucide-react";
+import { Loader2, AlertCircle, BarChart2, Link2, Link2Off, Activity, MoreVertical, Maximize2, Minimize2 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { usePlaygroundTimeStore } from "@/stores/playgroundTime";
 import { usePlayground } from "@/components/playground/PlaygroundContext";
+import { useContextMenu, ContextMenuItem, ContextMenu } from "@/components/playground/ContextMenu";
 
 // ─── Naive Radix-2 FFT ────────────────────────────────────────────────────────
 function computeFFT(dataArray: number[], dtMs: number) {
@@ -74,6 +75,8 @@ interface TelemetryChartProps {
   /** Map of channelId -> display name (hierarchical disambiguation) */
   labelMap?: Record<string, string>;
   height?: number;
+  onToggleFullscreen?: () => void;
+  isFullscreen?: boolean;
 }
 
 // ─── Color palette (matches the dark McLaren/mission-control aesthetic) ───────
@@ -106,7 +109,9 @@ export function TelemetryChart({
   channelIds,
   colorMap,
   labelMap,
-  height = 200,
+  height,
+  onToggleFullscreen,
+  isFullscreen,
 }: TelemetryChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const isInView = useRef(false);
@@ -348,8 +353,8 @@ export function TelemetryChart({
         },
       ];
 
-  const echartsSeries = series.flatMap((s) => {
-    const color = colorMap[s.channelId] ?? "#f97316";
+  const echartsSeries = series.flatMap((s: any) => {
+    const color = colorMap[s.channelId] || "#ccc";
     const displayName = labelMap?.[s.channelId] ?? s.channelName;
     const yAxisIndex = s.unit ? Math.max(0, unitAxes.indexOf(s.unit)) : 0;
 
@@ -359,7 +364,7 @@ export function TelemetryChart({
         {
           name: `${displayName} range`,
           type: "line",
-          data: s.points.map((p) => [p.t, p.min, p.max]),
+          data: s.points.map((p: any) => [p.t, p.min, p.max]),
           lineStyle: { opacity: 0, width: 0 },
           areaStyle: { opacity: 0.12, color },
           itemStyle: { opacity: 0 },
@@ -372,7 +377,7 @@ export function TelemetryChart({
         {
           name: displayName,
           type: "line",
-          data: s.points.map((p) => [p.t, p.avg]),
+          data: s.points.map((p: any) => [p.t, p.avg]),
           lineStyle: { color, width: 1.5 },
           itemStyle: { color },
           showSymbol: false,
@@ -386,7 +391,7 @@ export function TelemetryChart({
     if (s.points.length > 2) {
        // Estimate delta t
        const dtMs = Math.max(1, s.points[1].t - s.points[0].t);
-       const freqs = computeFFT(s.points.map(p => p.avg), dtMs);
+       const freqs = computeFFT(s.points.map((p: any) => p.avg), dtMs);
        const fftData = freqs.freq.map((f, i) => [f, freqs.mag[i]]);
        return [
          {
@@ -453,7 +458,7 @@ export function TelemetryChart({
       bottom: 40,
       textStyle: { color: "#71717a", fontSize: 10 },
       // Only show avg series in legend, not bands
-      data: series.map((s) => labelMap?.[s.channelId] ?? s.channelName),
+      data: series.map((s: any) => labelMap?.[s.channelId] ?? s.channelName),
     },
 
     grid: { left: 60, right: unitAxes.length > 1 ? 60 : 12, top: 10, bottom: 80 },
@@ -524,31 +529,46 @@ export function TelemetryChart({
   const isLoading = dataQuery.isFetching || timeRangeQuery.isLoading;
   const hasError  = dataQuery.isError;
 
+  const { menu, open: openMenu, close: closeMenu } = useContextMenu();
+
+  const menuItems: ContextMenuItem[] = [
+    {
+      type: "item",
+      label: chartMode === "time" ? "Switch to Frequency Mode" : "Switch to Time Mode",
+      icon: <Activity className="h-3.5 w-3.5" />,
+      onClick: () => setChartMode(chartMode === "time" ? "frequency" : "time")
+    },
+    {
+      type: "item",
+      label: linked ? "Disable Zoom Sync" : "Enable Zoom Sync",
+      icon: linked ? <Link2Off className="h-3.5 w-3.5" /> : <Link2 className="h-3.5 w-3.5" />,
+      onClick: toggleLinked
+    },
+    { type: "separator" },
+    {
+      type: "item",
+      label: isFullscreen ? "Exit Fullscreen" : "Fullscreen Focus",
+      icon: isFullscreen ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />,
+      onClick: () => onToggleFullscreen?.()
+    }
+  ];
+
   return (
     <div ref={containerRef} style={{ height: height ? `${height}px` : "100%" }} className="relative w-full overflow-hidden telemetry-chart-container">
       {/* Top right overlays */}
       <div className="absolute right-2 top-2 z-10 flex items-center gap-1">
         <button
-          onClick={() => setChartMode(chartMode === "time" ? "frequency" : "time")}
-          className={`rounded px-1.5 py-1 text-[10px] uppercase font-mono tracking-widest transition flex items-center gap-1 ${
-            chartMode === "frequency" ? "bg-[#f97316]/20 text-[#f97316]" : "text-muted-foreground hover:bg-[#1c1b1b] hover:text-foreground"
-          }`}
-          title="Toggle Time / Frequency Domain"
+          onClick={(e) => openMenu(e, menuItems)}
+          className="rounded p-1 text-muted-foreground hover:bg-[#1c1b1b] hover:text-[#f97316] transition-all bg-[#0e0e0e]/50 border border-transparent hover:border-[#27272a]"
+          title="Chart Options"
         >
-          <Activity className="h-3 w-3" />
-          {chartMode === "time" ? "Freq" : "Time"}
+          <MoreVertical className="h-4 w-4" />
         </button>
-
-        {chartMode === "time" && (
-          <button
-            onClick={toggleLinked}
-            className="rounded p-1 text-muted-foreground hover:bg-[#1c1b1b] hover:text-foreground transition"
-            title={linked ? "Zoom sync: ON (click to unlink)" : "Zoom sync: OFF (click to link)"}
-          >
-            {linked ? <Link2 className="h-3.5 w-3.5 text-[#f97316]" /> : <Link2Off className="h-3.5 w-3.5" />}
-          </button>
-        )}
       </div>
+
+      {menu && (
+        <ContextMenu x={menu.x} y={menu.y} items={menu.items} onClose={closeMenu} />
+      )}
 
       {/* Loading overlay */}
       {isLoading && (

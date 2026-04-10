@@ -8,6 +8,7 @@ import { trpc } from "@/lib/trpc";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useRef, Suspense } from "react";
 import { FlaskConical, BarChart2, Cpu, Loader2, X, Database } from "lucide-react";
+import { useState } from "react";
 import Link from "next/link";
 
 // ─── Empty states ─────────────────────────────────────────────────────────────
@@ -145,68 +146,110 @@ function PlottedDatasetBlock({ dataset }: { dataset: PlottedDataset }) {
         </p>
       ) : isOverlay ? (
         /* OVERLAY MODE: All channels in one chart */
-        <FullscreenPanel className="rounded-lg ring-1 ring-[#27272a] overflow-hidden">
-          <div className="bg-[#121212] p-4 flex flex-col telemetry-card">
-            <div className="mb-3 flex flex-wrap gap-3">
-              {channels.map((ch) => (
-                <div key={ch.id} className="flex items-center gap-2">
-                  <span
-                    className="h-2 w-2 rounded-full shrink-0"
-                    style={{ background: colorMap[ch.id] }}
-                  />
-                  <span className="text-[11px] font-medium text-foreground">{labelMap[ch.id]}</span>
-                  {ch.unit && (
-                    <span className="font-mono text-[9px] text-muted-foreground/40 italic">
-                      [{ch.unit}]
-                    </span>
-                  )}
-                </div>
-              ))}
-            </div>
-            <TelemetryChart
-              experimentId={dataset.experimentId}
-              datasetId={dataset.datasetId}
-              channelIds={channels.map((c) => c.id)}
-              colorMap={colorMap}
-              labelMap={labelMap}
-              height={600}
-            />
+        <FullscreenChartWrapper
+          experimentId={dataset.experimentId}
+          datasetId={dataset.datasetId}
+          channelIds={channels.map((c) => c.id)}
+          colorMap={colorMap}
+          labelMap={labelMap}
+          height={600}
+        >
+          <div className="mb-3 flex flex-wrap gap-3">
+            {channels.map((ch) => (
+              <div key={ch.id} className="flex items-center gap-2">
+                <span
+                  className="h-2 w-2 rounded-full shrink-0"
+                  style={{ background: colorMap[ch.id] }}
+                />
+                <span className="text-[11px] font-medium text-foreground">{labelMap[ch.id]}</span>
+                {ch.unit && (
+                  <span className="font-mono text-[9px] text-muted-foreground/40 italic">
+                    [{ch.unit}]
+                  </span>
+                )}
+              </div>
+            ))}
           </div>
-        </FullscreenPanel>
+        </FullscreenChartWrapper>
       ) : (
         /* SEPARATE MODE: Grid of individual charts */
         <div className="grid gap-4 md:grid-cols-1 lg:grid-cols-2 xl:grid-cols-2">
           {channels.map((ch) => (
-            <FullscreenPanel key={ch.id} className="rounded-lg ring-1 ring-[#27272a] overflow-hidden">
-              <div className="group bg-[#121212] p-2 transition hover:ring-[#f97316]/20 flex flex-col telemetry-card">
-                <div className="mb-2 flex items-center gap-2 px-2 pt-1">
-                  <span
-                    className="h-3 w-3 rounded-sm shrink-0"
-                    style={{ background: colorMap[ch.id] }}
-                  />
-                  <span className="font-['Manrope',sans-serif] text-sm font-bold text-foreground truncate">
-                    {labelMap[ch.id]}
-                  </span>
-                  {ch.unit && (
-                    <span className="ml-auto rounded bg-[#0e0e0e] px-1.5 py-0.5 font-mono text-[9px] text-muted-foreground/60 border border-[#27272a]">
-                      {ch.unit}
-                    </span>
-                  )}
-                </div>
-                <TelemetryChart
-                  experimentId={dataset.experimentId}
-                  datasetId={dataset.datasetId}
-                  channelIds={[ch.id]}
-                  colorMap={colorMap}
-                  labelMap={labelMap}
-                  height={350}
+            <FullscreenChartWrapper
+              key={ch.id}
+              experimentId={dataset.experimentId}
+              datasetId={dataset.datasetId}
+              channelIds={[ch.id]}
+              colorMap={colorMap}
+              labelMap={labelMap}
+              height={350}
+            >
+              <div className="mb-2 flex items-center gap-2 px-2 pt-1">
+                <span
+                  className="h-3 w-3 rounded-sm shrink-0"
+                  style={{ background: colorMap[ch.id] }}
                 />
+                <span className="font-['Manrope',sans-serif] text-sm font-bold text-foreground truncate">
+                  {labelMap[ch.id]}
+                </span>
+                {ch.unit && (
+                  <span className="ml-auto rounded bg-[#0e0e0e] px-1.5 py-0.5 font-mono text-[9px] text-muted-foreground/60 border border-[#27272a]">
+                    {ch.unit}
+                  </span>
+                )}
               </div>
-            </FullscreenPanel>
+            </FullscreenChartWrapper>
           ))}
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * A helper that combines FullscreenPanel and TelemetryChart with the correct ref plumbing.
+ */
+function FullscreenChartWrapper({
+  children,
+  experimentId,
+  datasetId,
+  channelIds,
+  colorMap,
+  labelMap,
+  height,
+}: {
+  children?: React.ReactNode;
+  experimentId: string;
+  datasetId: string;
+  channelIds: string[];
+  colorMap: Record<string, string>;
+  labelMap: Record<string, string>;
+  height: number;
+}) {
+  const fsRef = useRef<{ toggle: () => void; isFullscreen: boolean }>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  return (
+    <FullscreenPanel
+      ref={fsRef}
+      hideTrigger
+      onFullscreenChange={setIsFullscreen}
+      className="rounded-lg ring-1 ring-[#27272a] overflow-hidden"
+    >
+      <div className={`bg-[#121212] p-4 transition hover:ring-[#f97316]/20 flex flex-col telemetry-card ${isFullscreen ? "h-full" : ""}`}>
+        {children}
+        <TelemetryChart
+          experimentId={experimentId}
+          datasetId={datasetId}
+          channelIds={channelIds}
+          colorMap={colorMap}
+          labelMap={labelMap}
+          height={isFullscreen ? undefined : height}
+          onToggleFullscreen={() => fsRef.current?.toggle()}
+          isFullscreen={isFullscreen}
+        />
+      </div>
+    </FullscreenPanel>
   );
 }
 
