@@ -88,7 +88,7 @@ function DatasetChannels({
 
   const handleContextMenu = (e: React.MouseEvent, channel: any) => {
     e.preventDefault();
-    
+
     // If we right-click an unselected item, select it alone
     let currentSelection = selectedIds;
     if (!selectedIds.includes(channel.id)) {
@@ -110,7 +110,7 @@ function DatasetChannels({
             channelIds: currentSelection,
             layout: "separate",
           });
-          setSelectedIds([]); 
+          setSelectedIds([]);
         },
       },
       {
@@ -177,16 +177,14 @@ function DatasetChannels({
             key={ch.id}
             onClick={(e) => handleChannelClick(e, ch)}
             onContextMenu={(e) => handleContextMenu(e, ch)}
-            className={`flex cursor-pointer select-none items-center gap-2 rounded px-3 py-1 text-[11px] transition-all ${
-              isSelected
-                ? "bg-[#f97316]/10 text-foreground ring-1 ring-inset ring-[#f97316]/30"
-                : "text-muted-foreground/70 hover:bg-[#1c1b1b] hover:text-muted-foreground"
-            }`}
+            className={`flex cursor-pointer select-none items-center gap-2 rounded px-3 py-1 text-[11px] transition-all ${isSelected
+              ? "bg-[#f97316]/10 text-foreground ring-1 ring-inset ring-[#f97316]/30"
+              : "text-muted-foreground/70 hover:bg-[#1c1b1b] hover:text-muted-foreground"
+              }`}
           >
             <Hash
-              className={`h-2.5 w-2.5 shrink-0 ${
-                isSelected ? "text-[#f97316]" : "text-muted-foreground/30"
-              }`}
+              className={`h-2.5 w-2.5 shrink-0 ${isSelected ? "text-[#f97316]" : "text-muted-foreground/30"
+                }`}
             />
             <span className="flex-1 truncate" title={displayName}>
               {displayName}
@@ -273,9 +271,8 @@ function DatasetRow({
         <Database className="h-3 w-3 shrink-0 text-muted-foreground/50" />
         <span className="flex-1 truncate">{dataset.name}</span>
         <span
-          className={`font-mono text-[9px] uppercase tracking-wider ${
-            DATASET_STATUS_COLOR[dataset.status] ?? "text-muted-foreground/40"
-          }`}
+          className={`font-mono text-[9px] uppercase tracking-wider ${DATASET_STATUS_COLOR[dataset.status] ?? "text-muted-foreground/40"
+            }`}
         >
           {dataset.status}
         </span>
@@ -283,9 +280,9 @@ function DatasetRow({
 
       {open && (
         <div className="ml-5 mt-0.5 space-y-0">
-          <DatasetChannels 
-            experimentId={experimentId} 
-            datasetId={dataset.id} 
+          <DatasetChannels
+            experimentId={experimentId}
+            datasetId={dataset.id}
             datasetName={dataset.name}
           />
         </div>
@@ -362,11 +359,10 @@ function ExperimentRow({
     <button
       type="button"
       onClick={onSelect}
-      className={`group flex w-full items-center gap-2.5 rounded px-3 py-2 text-left transition-all ${
-        selected
-          ? "bg-[#201f1f] text-foreground"
-          : "text-muted-foreground hover:bg-[#1c1b1b] hover:text-foreground"
-      }`}
+      className={`group flex w-full items-center gap-2.5 rounded px-3 py-2 text-left transition-all ${selected
+        ? "bg-[#201f1f] text-foreground"
+        : "text-muted-foreground hover:bg-[#1c1b1b] hover:text-foreground"
+        }`}
     >
       {selected ? (
         <ChevronDown className="h-3.5 w-3.5 shrink-0 text-[#f97316]" />
@@ -376,9 +372,8 @@ function ExperimentRow({
       <FlaskConical className="h-3.5 w-3.5 shrink-0" />
       <span className="flex-1 truncate text-xs font-medium">{experiment.name}</span>
       <span
-        className={`h-1.5 w-1.5 shrink-0 rounded-full ${
-          EXPERIMENT_STATUS_DOT[experiment.status] ?? "bg-[#353534]"
-        }`}
+        className={`h-1.5 w-1.5 shrink-0 rounded-full ${EXPERIMENT_STATUS_DOT[experiment.status] ?? "bg-[#353534]"
+          }`}
       />
     </button>
   );
@@ -407,8 +402,7 @@ export function PlaygroundSidebar({
           <Image src="/logo.svg" alt="Xpectra" fill className="object-contain" priority />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-semibold text-foreground">Xpectra</p>
-          <p className="font-mono text-[10px] text-[#f97316]">MISSION CONTROL</p>
+          <p className="truncate text-lg font-semibold text-foreground">Xpectra</p>
         </div>
       </div>
 
