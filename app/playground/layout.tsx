@@ -11,32 +11,26 @@ function PlaygroundShell({ children }: { children: ReactNode }) {
   const [selectedExperimentId, setSelectedExperimentId] = useState<string | null>(null);
   const [plottedDatasets, setPlottedDatasets] = useState<PlottedDataset[]>([]);
 
-  const plotAllChannels = useCallback((dataset: PlottedDataset) => {
+  const addPlot = useCallback((newPlot: Omit<PlottedDataset, "id">) => {
     setPlottedDatasets((prev) => {
-      const exists = prev.some((d) => d.datasetId === dataset.datasetId);
-      if (exists) {
-        // Clear filtered channels if it already existed to show ALL
-        return prev.map((d) => (d.datasetId === dataset.datasetId ? { ...d, channelIds: undefined } : d));
-      }
-      return [...prev, dataset];
+      // Check if exact same plot already exists to avoid duplicates
+      const isDuplicate = prev.some((d) => 
+        d.datasetId === newPlot.datasetId && 
+        d.layout === newPlot.layout && 
+        JSON.stringify(d.channelIds) === JSON.stringify(newPlot.channelIds)
+      );
+      if (isDuplicate) return prev;
+
+      const plotWithId: PlottedDataset = {
+        ...newPlot,
+        id: crypto.randomUUID(),
+      };
+      return [...prev, plotWithId];
     });
   }, []);
 
-  const plotChannels = useCallback((dataset: PlottedDataset) => {
-    setPlottedDatasets((prev) => {
-      const idx = prev.findIndex((d) => d.datasetId === dataset.datasetId);
-      if (idx > -1) {
-        // Replace selection
-        const updated = [...prev];
-        updated[idx] = dataset;
-        return updated;
-      }
-      return [...prev, dataset];
-    });
-  }, []);
-
-  const removePlottedDataset = useCallback((datasetId: string) => {
-    setPlottedDatasets((prev) => prev.filter((d) => d.datasetId !== datasetId));
+  const removePlot = useCallback((plotId: string) => {
+    setPlottedDatasets((prev) => prev.filter((d) => d.id !== plotId));
   }, []);
 
   return (
@@ -45,9 +39,8 @@ function PlaygroundShell({ children }: { children: ReactNode }) {
         selectedExperimentId,
         setSelectedExperimentId,
         plottedDatasets,
-        plotAllChannels,
-        plotChannels,
-        removePlottedDataset,
+        addPlot,
+        removePlot,
       }}
     >
       <div className="flex h-screen overflow-hidden bg-[#131313] text-foreground">

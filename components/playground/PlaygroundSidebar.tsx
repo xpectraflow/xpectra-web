@@ -46,7 +46,7 @@ function DatasetChannels({
   datasetId: string;
   datasetName: string;
 }) {
-  const { plotChannels } = usePlayground();
+  const { addPlot } = usePlayground();
   const { menu, open: openMenu, close: closeMenu } = useContextMenu();
 
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -100,16 +100,32 @@ function DatasetChannels({
     const items: ContextMenuItem[] = [
       {
         type: "item",
-        label: `Plot selected channels (${currentSelection.length})`,
+        label: `Plot in separate panels (${currentSelection.length})`,
         icon: <BarChart2 className="h-3.5 w-3.5" />,
         onClick: () => {
-          plotChannels({
+          addPlot({
             datasetId,
             datasetName,
             experimentId,
             channelIds: currentSelection,
+            layout: "separate",
           });
-          setSelectedIds([]); // Clear after plotting
+          setSelectedIds([]); 
+        },
+      },
+      {
+        type: "item",
+        label: `Plot in single panel (Overlaid)`,
+        icon: <BarChart2 className="h-3.5 w-3.5 text-[#f97316]" />,
+        onClick: () => {
+          addPlot({
+            datasetId,
+            datasetName,
+            experimentId,
+            channelIds: currentSelection,
+            layout: "overlay",
+          });
+          setSelectedIds([]);
         },
       },
       { type: "separator" },
@@ -187,19 +203,32 @@ function DatasetRow({
   open: boolean;
   onToggle: () => void;
 }) {
-  const { plotAllChannels } = usePlayground();
+  const { addPlot } = usePlayground();
   const { menu, open: openMenu, close: closeMenu } = useContextMenu();
 
   const menuItems: ContextMenuItem[] = [
     {
       type: "item",
-      label: "Plot all channels",
+      label: "Plot all in separate panels",
       icon: <BarChart2 className="h-3.5 w-3.5" />,
       onClick: () =>
-        plotAllChannels({
+        addPlot({
           datasetId: dataset.id,
           datasetName: dataset.name,
           experimentId,
+          layout: "separate",
+        }),
+    },
+    {
+      type: "item",
+      label: "Plot all in single panel",
+      icon: <BarChart2 className="h-3.5 w-3.5 text-[#f97316]" />,
+      onClick: () =>
+        addPlot({
+          datasetId: dataset.id,
+          datasetName: dataset.name,
+          experimentId,
+          layout: "overlay",
         }),
     },
     { type: "separator" },

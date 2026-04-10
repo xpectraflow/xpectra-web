@@ -59,7 +59,7 @@ function NoDatasetsPlottedState() {
 // ─── Plotted dataset block ────────────────────────────────────────────────────
 
 function PlottedDatasetBlock({ dataset }: { dataset: PlottedDataset }) {
-  const { removePlottedDataset } = usePlayground();
+  const { removePlot } = usePlayground();
 
   // Fetch channels so we know their IDs and can assign colors
   const channelsQuery = trpc.channels.getChannels.useQuery({
@@ -68,9 +68,9 @@ function PlottedDatasetBlock({ dataset }: { dataset: PlottedDataset }) {
   });
 
   const rawChannels = channelsQuery.data ?? [];
-  
+
   // Filter channels if a specific subset was requested
-  const channels = dataset.channelIds 
+  const channels = dataset.channelIds
     ? rawChannels.filter(ch => dataset.channelIds?.includes(ch.id))
     : rawChannels;
 
@@ -80,64 +80,96 @@ function PlottedDatasetBlock({ dataset }: { dataset: PlottedDataset }) {
     colorMap[ch.id] = CHART_PALETTE[i % CHART_PALETTE.length];
   });
 
+  const isOverlay = dataset.layout === "overlay";
+
   return (
-    <div className="mb-8">
+    <div className="mb-8 rounded-lg border border-[#27272a] bg-[#0e0e0e] p-6 shadow-sm">
       {/* Dataset header */}
-      <div className="mb-4 flex items-center gap-3">
+      <div className="mb-4 flex items-center gap-3 border-b border-[#27272a] pb-4">
         <Database className="h-4 w-4 shrink-0 text-[#f97316]" />
-        <h2 className="font-['Manrope',sans-serif] text-base font-semibold text-foreground">
-          {dataset.datasetName}
-        </h2>
-        <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground/50">
-          {channels.length} {dataset.channelIds ? "selected channels" : "channels"}
-        </span>
+        <div className="flex-1">
+          <h2 className="font-['Manrope',sans-serif] text-base font-semibold text-foreground leading-none">
+            {dataset.datasetName}
+          </h2>
+          <p className="mt-1 font-mono text-[10px] uppercase tracking-widest text-muted-foreground/50">
+            {channels.length} {dataset.channelIds ? "selected" : "total"} channels •{" "}
+            <span className={isOverlay ? "text-[#f97316]/70" : "text-sky-400/70"}>
+              {dataset.layout.toUpperCase()} MODE
+            </span>
+          </p>
+        </div>
         <button
           type="button"
-          onClick={() => removePlottedDataset(dataset.datasetId)}
-          className="ml-auto flex items-center gap-1.5 rounded bg-[#1c1b1b] px-2 py-1 font-mono text-[11px] text-muted-foreground ring-1 ring-[#27272a] transition hover:bg-[#201f1f] hover:text-foreground"
-          title="Remove from canvas"
+          onClick={() => removePlot(dataset.id)}
+          className="flex items-center gap-1.5 rounded bg-[#1c1b1b] px-2.5 py-1.5 font-mono text-[11px] text-muted-foreground ring-1 ring-[#27272a] transition hover:bg-destructive/10 hover:text-destructive hover:ring-destructive/20"
+          title="Remove plot from canvas"
         >
-          <X className="h-3 w-3" />
+          <X className="h-3.5 w-3.5" />
           Remove
         </button>
       </div>
 
       {channelsQuery.isLoading ? (
-        <div className="flex items-center justify-center gap-2 py-8 text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          <span className="text-sm">Loading channels…</span>
+        <div className="flex items-center justify-center gap-2 py-12 text-muted-foreground">
+          <Loader2 className="h-5 w-5 animate-spin text-[#f97316]/50" />
+          <span className="text-sm font-medium">Synchronizing telemetry data…</span>
         </div>
       ) : channels.length === 0 ? (
-        <p className="py-6 text-center font-mono text-xs text-muted-foreground/40">
-          {dataset.channelIds ? "Selected channels not found" : "No channels registered for this dataset"}
+        <p className="py-12 text-center font-mono text-xs text-muted-foreground/40">
+          {dataset.channelIds ? "Requested channels not available" : "No telemetry channels found"}
         </p>
-      ) : (
-        <div className="grid gap-4 md:grid-cols-2">
-          {channels.map((ch) => (
-            <div key={ch.id} className="rounded bg-[#1c1b1b] p-4">
-              {/* Chart header */}
-              <div className="mb-2 flex items-center gap-2">
+      ) : isOverlay ? (
+        /* OVERLAY MODE: All channels in one chart */
+        <div className="rounded-lg bg-[#1c1b1b] p-6 ring-1 ring-[#27272a]">
+          <div className="mb-4 flex flex-wrap gap-4">
+            {channels.map((ch) => (
+              <div key={ch.id} className="flex items-center gap-2">
                 <span
-                  className="h-2.5 w-2.5 rounded-full shrink-0"
+                  className="h-2 w-2 rounded-full shrink-0"
                   style={{ background: colorMap[ch.id] }}
                 />
-                <span className="font-['Manrope',sans-serif] text-sm font-semibold text-foreground">
+                <span className="text-xs font-medium text-foreground">{ch.name}</span>
+                {ch.unit && (
+                  <span className="font-mono text-[9px] text-muted-foreground/40 italic">
+                    [{ch.unit}]
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+          <TelemetryChart
+            experimentId={dataset.experimentId}
+            datasetId={dataset.datasetId}
+            channelIds={channels.map((c) => c.id)}
+            colorMap={colorMap}
+            height={450} // Taller for overlaid data
+          />
+        </div>
+      ) : (
+        /* SEPARATE MODE: Grid of individual charts */
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-2">
+          {channels.map((ch) => (
+            <div key={ch.id} className="group rounded-lg bg-[#1c1b1b] p-5 ring-1 ring-[#27272a] transition hover:ring-[#f97316]/20">
+              <div className="mb-3 flex items-center gap-2">
+                <span
+                  className="h-3 w-3 rounded-sm shrink-0"
+                  style={{ background: colorMap[ch.id] }}
+                />
+                <span className="font-['Manrope',sans-serif] text-sm font-bold text-foreground truncate">
                   {ch.name}
                 </span>
                 {ch.unit && (
-                  <span className="rounded bg-[#131313] px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+                  <span className="ml-auto rounded bg-[#0e0e0e] px-1.5 py-0.5 font-mono text-[9px] text-muted-foreground/60 border border-[#27272a]">
                     {ch.unit}
                   </span>
                 )}
               </div>
-
-              {/* The chart — one channel per panel, full smart-fetch */}
               <TelemetryChart
                 experimentId={dataset.experimentId}
                 datasetId={dataset.datasetId}
                 channelIds={[ch.id]}
                 colorMap={colorMap}
-                height={200}
+                height={180}
               />
             </div>
           ))}
@@ -159,14 +191,17 @@ function TopBar({ title, subtitle }: { title?: string; subtitle?: string }) {
             {title ?? "Mission Control"}
           </span>
           {subtitle && (
-            <span className="ml-2 font-mono text-[11px] text-muted-foreground">· {subtitle}</span>
+            <span className="ml-2 font-mono text-[11px] text-muted-foreground uppercase tracking-tighter opacity-60">· {subtitle}</span>
           )}
         </div>
       </div>
       <div className="flex items-center gap-3">
-        <span className="flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground">
-          <span className="h-1.5 w-1.5 rounded-full bg-[#27272a]" />
-          IDLE
+        <span className="flex items-center gap-2 font-mono text-[10px] text-muted-foreground">
+          <span className="relative flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+          </span>
+          LIVE STREAM ACTIVE
         </span>
       </div>
     </div>
@@ -177,11 +212,11 @@ function TopBar({ title, subtitle }: { title?: string; subtitle?: string }) {
 
 function PlaygroundContent() {
   const searchParams = useSearchParams();
-  const { selectedExperimentId, setSelectedExperimentId, plottedDatasets, plotAllChannels } = usePlayground();
+  const { selectedExperimentId, setSelectedExperimentId, plottedDatasets, addPlot } = usePlayground();
   const hasAutoPlotted = useRef(false);
 
   const urlExpId = searchParams.get("experimentId");
-  const urlDsId  = searchParams.get("datasetId");
+  const urlDsId = searchParams.get("datasetId");
 
   // Sync selectedExperimentId with URL if present
   useEffect(() => {
@@ -200,15 +235,16 @@ function PlaygroundContent() {
     if (autoDsData && urlExpId && urlDsId && !hasAutoPlotted.current) {
       const isAlreadyPlotted = plottedDatasets.some((ds) => ds.datasetId === urlDsId);
       if (!isAlreadyPlotted) {
-        plotAllChannels({
+        addPlot({
           datasetId: urlDsId,
           datasetName: autoDsData.name,
           experimentId: urlExpId,
+          layout: "separate",
         });
       }
       hasAutoPlotted.current = true;
     }
-  }, [autoDsData, urlExpId, urlDsId, plotAllChannels, plottedDatasets]);
+  }, [autoDsData, urlExpId, urlDsId, addPlot, plottedDatasets]);
 
   // Fetch experiment name for the top bar
   const experimentQuery = trpc.experiments.getExperimentById.useQuery(
