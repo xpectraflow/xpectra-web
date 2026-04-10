@@ -33,6 +33,16 @@ function getBucketInterval(startMs: number, endMs: number, targetPoints = 2000):
   return "15 minutes";
 }
 
+function parseIntervalToMs(intervalStr: string): number {
+  const parts = intervalStr.split(' ');
+  const val = parseInt(parts[0], 10);
+  const unit = parts[1];
+  if (unit.startsWith('millisecond')) return val;
+  if (unit.startsWith('second')) return val * 1000;
+  if (unit.startsWith('minute')) return val * 60000;
+  return val * 60000;
+}
+
 // ─── Input schemas ─────────────────────────────────────────────────────────────
 
 const channelDataInput = z.object({
@@ -106,37 +116,81 @@ export const telemetryRouter = createTRPCRouter({
       }
 
       const hypertableName = dataset.experiment.hypertableName;
-      const bucketInterval = getBucketInterval(input.startTime, input.endTime);
+      
+      // Fetch all column types for this hypertable to know what needs casting
+      const colCheck = await pool.query(`
+        SELECT column_name, data_type FROM information_schema.columns 
+        WHERE table_name = $1
+      `, [hypertableName]);
+      
+      const colTypes = new Map(colCheck.rows.map(r => [r.column_name, r.data_type]));
+      const isBigInt = colTypes.get('time') === 'bigint';
 
+      const bucketIntervalStr = getBucketInterval(input.startTime, input.endTime);
+      // Rough ms equivalent for BIGINT bucket width
+      const bucketMs = parseIntervalToMs(bucketIntervalStr);
+      
       // Build one query per channel (avoids N+1 vs a complex pivot that's hard to type)
       const seriesPromises = requestedChannels.map(async (ch) => {
         const col = `"${ch.hypertableColName}"`;
-        const sql = `
-          SELECT
-            time_bucket($1::interval, "time") AS t,
-            avg(${col})                        AS avg,
-            min(${col})                        AS min,
-            max(${col})                        AS max,
-            count(*)                           AS sample_count
-          FROM "${hypertableName}"
-          WHERE  "dataset_id" = $2
-            AND  "time" >= to_timestamp($3::double precision / 1000)
-            AND  "time" <= to_timestamp($4::double precision / 1000)
-            AND  ${col} IS NOT NULL
-          GROUP BY 1
-          ORDER BY 1 ASC
-          LIMIT 5000
-        `;
+        
+        let sql: string;
+        let params: any[];
+        
+        if (isBigInt) {
+          const bucketNs = BigInt(Math.floor(bucketMs * 1_000_000));
+          const startNs = BigInt(Math.floor(input.startTime * 1_000_000));
+          const endNs = BigInt(Math.floor(input.endTime * 1_000_000));
+          
+          // For BOOLEAN types, we must cast to integer to allow avg() min() max()
+          const dbType = colTypes.get(ch.hypertableColName);
+          const colExpr = dbType === "boolean" ? `"${ch.hypertableColName}"::INT` : `"${ch.hypertableColName}"`;
+          
+          sql = `
+            SELECT
+              time_bucket($1::bigint, "time")  AS t,
+              avg(${colExpr})                    AS avg,
+              min(${colExpr})                    AS min,
+              max(${colExpr})                    AS max,
+              count(*)                           AS sample_count
+            FROM "${hypertableName}"
+            WHERE  "dataset_id" = $2
+              AND  "time" >= $3::bigint
+              AND  "time" <= $4::bigint
+              AND  "${ch.hypertableColName}" IS NOT NULL
+            GROUP BY 1
+            ORDER BY 1 ASC
+            LIMIT 5000
+          `;
+          params = [bucketNs.toString(), input.datasetId, startNs.toString(), endNs.toString()];
+        } else {
+          // For BOOLEAN types, we must cast to integer to allow avg() min() max()
+          const dbType = colTypes.get(ch.hypertableColName);
+          const colExpr = dbType === "boolean" ? `"${ch.hypertableColName}"::INT` : `"${ch.hypertableColName}"`;
 
-        const result = await pool.query(sql, [
-          bucketInterval,
-          input.datasetId,
-          input.startTime,
-          input.endTime,
-        ]);
+          sql = `
+            SELECT
+              time_bucket($1::interval, "time") AS t,
+              avg(${colExpr})                    AS avg,
+              min(${colExpr})                    AS min,
+              max(${colExpr})                    AS max,
+              count(*)                           AS sample_count
+            FROM "${hypertableName}"
+            WHERE  "dataset_id" = $2
+              AND  "time" >= to_timestamp($3::double precision / 1000)
+              AND  "time" <= to_timestamp($4::double precision / 1000)
+              AND  "${ch.hypertableColName}" IS NOT NULL
+            GROUP BY 1
+            ORDER BY 1 ASC
+            LIMIT 5000
+          `;
+          params = [bucketIntervalStr, input.datasetId, input.startTime, input.endTime];
+        }
+
+        const result = await pool.query(sql, params);
 
         const points = result.rows.map((row: any) => ({
-          t: new Date(row.t).getTime(),
+          t: isBigInt ? parseInt(row.t, 10) / 1_000_000 : new Date(row.t).getTime(),
           avg: parseFloat(row.avg),
           min: parseFloat(row.min),
           max: parseFloat(row.max),
@@ -155,7 +209,7 @@ export const telemetryRouter = createTRPCRouter({
 
       const series = await Promise.all(seriesPromises);
 
-      return { series, bucketInterval };
+      return { series, bucketInterval: bucketIntervalStr };
     }),
 
   /**
@@ -189,6 +243,13 @@ export const telemetryRouter = createTRPCRouter({
       if (!dataset) return { startTime: null, endTime: null };
 
       const hypertableName = dataset.experiment.hypertableName;
+      
+      const colCheck = await pool.query(`
+        SELECT data_type FROM information_schema.columns 
+        WHERE table_name = $1 AND column_name = 'time'
+      `, [hypertableName]);
+      const isBigInt = colCheck.rows[0]?.data_type === 'bigint';
+
       const sql = `
         SELECT
           min("time") AS start_time,
@@ -199,9 +260,20 @@ export const telemetryRouter = createTRPCRouter({
 
       const result = await pool.query(sql, [input.datasetId]);
       const row = result.rows[0];
+      
+      let startMs = null;
+      let endMs = null;
+      
+      if (row?.start_time) {
+        startMs = isBigInt ? parseInt(row.start_time, 10) / 1_000_000 : new Date(row.start_time).getTime();
+      }
+      if (row?.end_time) {
+        endMs = isBigInt ? parseInt(row.end_time, 10) / 1_000_000 : new Date(row.end_time).getTime();
+      }
+
       return {
-        startTime: row?.start_time ? new Date(row.start_time).getTime() : null,
-        endTime:   row?.end_time   ? new Date(row.end_time).getTime()   : null,
+        startTime: startMs,
+        endTime: endMs,
       };
     }),
 });

@@ -53,24 +53,47 @@ export async function GET(req: NextRequest) {
 
   const hypertableName = dataset.experiment.hypertableName;
 
+  const colCheck = await pool.query(`
+    SELECT column_name, data_type FROM information_schema.columns 
+    WHERE table_name = $1
+  `, [hypertableName]);
+  
+  const colTypes = new Map(colCheck.rows.map(r => [r.column_name, r.data_type]));
+  const isBigInt = colTypes.get('time') === 'bigint';
+  const isBoolean = colTypes.get(channelCol) === 'boolean';
+
+  // For BOOLEAN types, we must cast to integer to allow numeric operations if needed,
+  // though for raw fetch we mostly just want the value. 
+  // However, consistent return types (0/1) help the charts.
+  const colExpr = isBoolean ? `"${channelCol}"::INT` : `"${channelCol}"`;
+
   // Build the query dynamically
-  // We use parameterized placeholders where possible, but table/col names must be interpolated carefully
   const conditions: string[] = [`"dataset_id" = $1`];
   const params: unknown[] = [datasetId];
   let paramIdx = 2;
 
   if (from) {
-    conditions.push(`"time" >= $${paramIdx++}`);
-    params.push(new Date(from));
+    if (isBigInt) {
+      conditions.push(`"time" >= $${paramIdx++}::bigint`);
+      params.push(BigInt(new Date(from).getTime() * 1000000).toString());
+    } else {
+      conditions.push(`"time" >= $${paramIdx++}`);
+      params.push(new Date(from));
+    }
   }
   if (to) {
-    conditions.push(`"time" <= $${paramIdx++}`);
-    params.push(new Date(to));
+    if (isBigInt) {
+      conditions.push(`"time" <= $${paramIdx++}::bigint`);
+      params.push(BigInt(new Date(to).getTime() * 1000000).toString());
+    } else {
+      conditions.push(`"time" <= $${paramIdx++}`);
+      params.push(new Date(to));
+    }
   }
 
   const whereClause = conditions.join(" AND ");
   const sql = `
-    SELECT "time", "${channelCol}" AS v
+    SELECT "time", ${colExpr} AS v
     FROM "${hypertableName}"
     WHERE ${whereClause} AND "${channelCol}" IS NOT NULL
     ORDER BY "time" ASC
@@ -81,7 +104,7 @@ export async function GET(req: NextRequest) {
   try {
     const result = await pool.query(sql, params as any[]);
     const data = result.rows.map((row: any) => ({
-      t: new Date(row.time).getTime(),
+      t: isBigInt ? parseInt(row.time, 10) / 1_000_000 : new Date(row.time).getTime(),
       v: parseFloat(row.v),
     }));
 
