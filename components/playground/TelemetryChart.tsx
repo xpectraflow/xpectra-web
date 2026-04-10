@@ -51,9 +51,9 @@ export function TelemetryChart({
   colorMap,
   height = 200,
 }: TelemetryChartProps) {
-  const echartsRef = useRef<EChartsInstance | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const isInView = useRef(false);
+  const [chartInstance, setChartInstance] = useState<EChartsInstance | null>(null);
 
   const { startTime, endTime, linked, setTimeRange, toggleLinked } = usePlaygroundTimeStore();
 
@@ -75,16 +75,15 @@ export function TelemetryChart({
 
   // ── Sync group connection (Hover/Tooltip sync) ──────────────────────────
   useEffect(() => {
-    const chart = echartsRef.current;
-    if (chart && linked) {
+    if (chartInstance && linked) {
       // Connect to the synchronized group
-      chart.group = "playground-sync";
+      chartInstance.group = "playground-sync";
       echarts.connect("playground-sync");
-    } else if (chart) {
+    } else if (chartInstance) {
       // Unlink from the group
-      chart.group = "";
+      chartInstance.group = "";
     }
-  }, [linked]);
+  }, [linked, chartInstance]);
 
   // ── Fetch bucketed data — re-fires on every startTime/endTime change ───────
   const dataQuery = trpc.telemetry.getChannelData.useQuery(
@@ -126,12 +125,9 @@ export function TelemetryChart({
     () => {
       // If we are linked, we want to update the global time store
       // so other charts can pick it up and re-fetch high-res data.
-      if (!linked) return;
+      if (!linked || !chartInstance) return;
       
-      const chart = echartsRef.current;
-      if (!chart) return;
-
-      const option = chart.getOption() as any;
+      const option = chartInstance.getOption() as any;
       const dz = option.dataZoom?.[0];
       if (!dz) return;
 
@@ -141,7 +137,6 @@ export function TelemetryChart({
 
       if (typeof newStart === "number" && typeof newEnd === "number") {
         // Debounce or check for meaningful change to avoid infinite loops
-        // ECharts emits many zoom events; only push if it's a real shift
         const currentStart = startTime ?? 0;
         const currentEnd = endTime ?? 0;
         
@@ -150,7 +145,7 @@ export function TelemetryChart({
         }
       }
     },
-    [linked, startTime, endTime, setTimeRange]
+    [linked, startTime, endTime, setTimeRange, chartInstance]
   );
 
   // ── Build ECharts option ──────────────────────────────────────────────────
@@ -345,7 +340,7 @@ export function TelemetryChart({
         </div>
       ) : (
         <ReactECharts
-          ref={(e) => { echartsRef.current = e?.getEchartsInstance() ?? null; }}
+          onChartReady={setChartInstance}
           option={chartOption}
           style={{ height: "100%", width: "100%" }}
           opts={{ renderer: "canvas" }}
