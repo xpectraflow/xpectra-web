@@ -145,6 +145,34 @@ export const datasetsRouter = createTRPCRouter({
       .orderBy(desc(datasets.createdAt));
   }),
 
+  getAllDatasets: protectedProcedure.query(async ({ ctx }) => {
+    const userId = await getOrCreateDbUser({
+      db: ctx.db,
+      ...userInfoFromSession(ctx.session),
+    });
+    const organizationId = await getPrimaryOrganizationIdForUser({
+      db: ctx.db,
+      userId,
+    });
+
+    return ctx.db
+      .select({
+        id: datasets.id,
+        name: datasets.name,
+        status: datasets.status,
+        rowCount: datasets.rowCount,
+        startedAt: datasets.startedAt,
+        endedAt: datasets.endedAt,
+        createdAt: datasets.createdAt,
+        experimentId: datasets.experimentId,
+        experimentName: experiments.name,
+      })
+      .from(datasets)
+      .innerJoin(experiments, eq(datasets.experimentId, experiments.id))
+      .where(eq(experiments.organizationId, organizationId))
+      .orderBy(desc(datasets.createdAt));
+  }),
+
   getDatasetById: protectedProcedure.input(datasetIdInput).query(async ({ ctx, input }) => {
     const userId = await getOrCreateDbUser({
       db: ctx.db,

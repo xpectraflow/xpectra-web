@@ -36,6 +36,9 @@ export function Sidebar() {
   const organizationsQuery = trpc.organizations.list.useQuery();
   const organizations = organizationsQuery.data ?? [];
 
+  const datasetsQuery = trpc.datasets.getAllDatasets.useQuery();
+  const datasetCount = datasetsQuery.data?.length ?? 0;
+
   return (
     <div className="flex h-screen w-64 flex-col border-r border-sidebar-border bg-sidebar-background">
       {/* Top Section */}
@@ -109,7 +112,7 @@ export function Sidebar() {
                 href="/datasets"
                 icon={Database}
                 label="My datasets"
-                count={devices.length}
+                count={datasetCount}
               />
               <SidebarItem
                 href="/playground"

@@ -129,7 +129,7 @@ export default function DatasetDetailsPage() {
 
                 {channelsQuery.isLoading && (
                   <div className="flex items-center justify-center py-12">
-                     <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                   </div>
                 )}
 
@@ -153,10 +153,10 @@ export default function DatasetDetailsPage() {
             <div className="space-y-6">
               <section className="rounded-2xl border border-white/5 bg-white/[0.02] p-6 space-y-4">
                 <div className="flex items-center gap-2 text-white font-semibold">
-                   <FlaskConical className="h-4 w-4 text-[#f97316]" />
-                   Dataset Controls
+                  <FlaskConical className="h-4 w-4 text-[#f97316]" />
+                  Dataset Controls
                 </div>
-                
+
                 <DatasetForm
                   submitLabel="Update Vitals"
                   isSubmitting={updateDatasetMutation.isPending}
@@ -182,10 +182,6 @@ export default function DatasetDetailsPage() {
               </section>
 
               <section className="rounded-2xl border border-white/5 bg-white/[0.02] p-6 space-y-4">
-                <div className="flex items-center gap-2 text-white font-semibold">
-                   <Activity className="h-4 w-4 text-[#f97316]" />
-                   Registration
-                </div>
                 <p className="text-xs text-muted-foreground">
                   Define new sensory input mapping for this dataset record.
                 </p>
