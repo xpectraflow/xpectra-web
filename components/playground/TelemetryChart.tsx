@@ -64,7 +64,7 @@ export function TelemetryChart({
   const timeRangeQuery = trpc.telemetry.getDatasetTimeRange.useQuery(
     { experimentId, datasetId },
     {
-      enabled: startTime === null,
+      enabled: true, // Always fetch/keep dataset bounds for absolute scale
       refetchOnWindowFocus: false,
     }
   );
@@ -154,6 +154,14 @@ export function TelemetryChart({
   // ── Build ECharts option ──────────────────────────────────────────────────
   const series = dataQuery.data?.series ?? [];
   const rangeMs = (endTime ?? 0) - (startTime ?? 0);
+
+  // ── Absolute scale calculation (for zoom out headroom) ─────────────────────
+  const absMin = timeRangeQuery.data?.startTime;
+  const absMax = timeRangeQuery.data?.endTime;
+  const absRange = (absMax ?? 0) - (absMin ?? 0);
+  // Add 2% padding so user can zoom out slightly beyond the data
+  const bufferedMin = absMin ? absMin - absRange * 0.02 : (startTime ?? 0);
+  const bufferedMax = absMax ? absMax + absRange * 0.02 : (endTime ?? 0);
 
   // Collect unique units for dual y-axes
   const unitAxes: string[] = [];
@@ -272,8 +280,8 @@ export function TelemetryChart({
 
     xAxis: {
       type: "time",
-      min: startTime,
-      max: endTime,
+      min: bufferedMin,
+      max: bufferedMax,
       axisLine: { lineStyle: { color: "#27272a" } },
       axisLabel: {
         color: "#71717a",
@@ -286,10 +294,20 @@ export function TelemetryChart({
     yAxis: yAxes,
 
     dataZoom: [
-      { type: "inside", filterMode: "none" },
+      {
+        type: "inside",
+        filterMode: "none",
+        startValue: startTime ?? undefined,
+        endValue: endTime ?? undefined,
+        zoomOnMouseWheel: true,
+        moveOnMouseWheel: false,
+        preventDefaultMouseMove: false,
+      },
       {
         type: "slider",
         filterMode: "none",
+        startValue: startTime ?? undefined,
+        endValue: endTime ?? undefined,
         bottom: 10,
         height: 24,
         borderColor: "#27272a",
@@ -344,13 +362,20 @@ export function TelemetryChart({
         </div>
       ) : (
         <ReactECharts
-          onChartReady={setChartInstance}
           option={chartOption}
           style={{ height: "100%", width: "100%" }}
           opts={{ renderer: "canvas" }}
-          notMerge={false}
-          lazyUpdate
-          onEvents={{ dataZoom: handleDataZoom }}
+          notMerge={true}
+          lazyUpdate={true}
+          onEvents={{
+            datazoom: handleDataZoom,
+          }}
+          onChartReady={(instance) => {
+            setChartInstance(instance);
+            // Add to the sync group for linked hover/crosshair
+            instance.group = "playground-sync";
+            echarts.connect("playground-sync");
+          }}
         />
       )}
     </div>
