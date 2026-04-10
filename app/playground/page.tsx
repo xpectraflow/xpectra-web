@@ -82,6 +82,22 @@ function PlottedDatasetBlock({ dataset }: { dataset: PlottedDataset }) {
 
   const isOverlay = dataset.layout === "overlay";
 
+  // ── Hierarchical Label Disambiguation ──────────────────────────────────────
+  // Detect if any channel names collide (multiple sensors having same named channels).
+  // Prefix with sensor name only on collision.
+  const nameCounts = new Map<string, number>();
+  channels.forEach((ch) => {
+    nameCounts.set(ch.name, (nameCounts.get(ch.name) || 0) + 1);
+  });
+
+  const labelMap: Record<string, string> = {};
+  channels.forEach((ch) => {
+    const isCollision = (nameCounts.get(ch.name) || 0) > 1;
+    labelMap[ch.id] = isCollision && ch.sensorName
+      ? `${ch.sensorName} · ${ch.name}`
+      : ch.name;
+  });
+
   return (
     <div className="mb-8 rounded-lg border border-[#27272a] bg-[#0e0e0e] p-6 shadow-sm">
       {/* Dataset header */}
@@ -128,7 +144,7 @@ function PlottedDatasetBlock({ dataset }: { dataset: PlottedDataset }) {
                   className="h-2 w-2 rounded-full shrink-0"
                   style={{ background: colorMap[ch.id] }}
                 />
-                <span className="text-[11px] font-medium text-foreground">{ch.name}</span>
+                <span className="text-[11px] font-medium text-foreground">{labelMap[ch.id]}</span>
                 {ch.unit && (
                   <span className="font-mono text-[9px] text-muted-foreground/40 italic">
                     [{ch.unit}]
@@ -142,7 +158,8 @@ function PlottedDatasetBlock({ dataset }: { dataset: PlottedDataset }) {
             datasetId={dataset.datasetId}
             channelIds={channels.map((c) => c.id)}
             colorMap={colorMap}
-            height={600} // SIGNIFICANTLY TALLER for immersive overlay
+            labelMap={labelMap}
+            height={600}
           />
         </div>
       ) : (
@@ -156,7 +173,7 @@ function PlottedDatasetBlock({ dataset }: { dataset: PlottedDataset }) {
                   style={{ background: colorMap[ch.id] }}
                 />
                 <span className="font-['Manrope',sans-serif] text-sm font-bold text-foreground truncate">
-                  {ch.name}
+                  {labelMap[ch.id]}
                 </span>
                 {ch.unit && (
                   <span className="ml-auto rounded bg-[#0e0e0e] px-1.5 py-0.5 font-mono text-[9px] text-muted-foreground/60 border border-[#27272a]">
@@ -169,7 +186,8 @@ function PlottedDatasetBlock({ dataset }: { dataset: PlottedDataset }) {
                 datasetId={dataset.datasetId}
                 channelIds={[ch.id]}
                 colorMap={colorMap}
-                height={350} // MUCH TALLER for better resolution
+                labelMap={labelMap}
+                height={350}
               />
             </div>
           ))}

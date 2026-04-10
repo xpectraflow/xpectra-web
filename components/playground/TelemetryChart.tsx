@@ -17,6 +17,8 @@ interface TelemetryChartProps {
   channelIds: string[];
   /** Map of channelId -> color for consistent palette */
   colorMap: Record<string, string>;
+  /** Map of channelId -> display name (hierarchical disambiguation) */
+  labelMap?: Record<string, string>;
   height?: number;
 }
 
@@ -49,6 +51,7 @@ export function TelemetryChart({
   datasetId,
   channelIds,
   colorMap,
+  labelMap,
   height = 200,
 }: TelemetryChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -181,12 +184,13 @@ export function TelemetryChart({
 
   const echartsSeries = series.flatMap((s) => {
     const color = colorMap[s.channelId] ?? "#f97316";
+    const displayName = labelMap?.[s.channelId] ?? s.channelName;
     const yAxisIndex = s.unit ? Math.max(0, unitAxes.indexOf(s.unit)) : 0;
 
     return [
       // Min/max band
       {
-        name: `${s.channelName} range`,
+        name: `${displayName} range`,
         type: "line",
         data: s.points.map((p) => [p.t, p.min, p.max]),
         lineStyle: { opacity: 0, width: 0 },
@@ -200,7 +204,7 @@ export function TelemetryChart({
       },
       // Avg line
       {
-        name: s.channelName,
+        name: displayName,
         type: "line",
         data: s.points.map((p) => [p.t, p.avg]),
         lineStyle: { color, width: 1.5 },
@@ -261,7 +265,7 @@ export function TelemetryChart({
       bottom: 40,
       textStyle: { color: "#71717a", fontSize: 10 },
       // Only show avg series in legend, not bands
-      data: series.map((s) => s.channelName),
+      data: series.map((s) => labelMap?.[s.channelId] ?? s.channelName),
     },
 
     grid: { left: 60, right: unitAxes.length > 1 ? 60 : 12, top: 10, bottom: 80 },

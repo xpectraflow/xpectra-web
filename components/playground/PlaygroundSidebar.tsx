@@ -155,10 +155,23 @@ function DatasetChannels({
     );
   }
 
+  // ── Hierarchical Label Disambiguation ──────────────────────────────────────
+  // Detect if any channel names collide within this dataset expansion.
+  // Prefix with sensor name only on collision.
+  const nameCounts = new Map<string, number>();
+  channels.forEach((ch) => {
+    nameCounts.set(ch.name, (nameCounts.get(ch.name) || 0) + 1);
+  });
+
   return (
     <div className="relative">
       {channels.map((ch) => {
         const isSelected = selectedIds.includes(ch.id);
+        const isCollision = (nameCounts.get(ch.name) || 0) > 1;
+        const displayName = isCollision && ch.sensorName
+          ? `${ch.sensorName} · ${ch.name}`
+          : ch.name;
+
         return (
           <div
             key={ch.id}
@@ -175,7 +188,9 @@ function DatasetChannels({
                 isSelected ? "text-[#f97316]" : "text-muted-foreground/30"
               }`}
             />
-            <span className="flex-1 truncate">{ch.name}</span>
+            <span className="flex-1 truncate" title={displayName}>
+              {displayName}
+            </span>
             {ch.unit && (
               <span className="font-mono text-[10px] opacity-40">{ch.unit}</span>
             )}

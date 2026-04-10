@@ -2,7 +2,7 @@ import { randomUUID, randomBytes } from "crypto";
 import { TRPCError } from "@trpc/server";
 import { and, asc, eq } from "drizzle-orm";
 import { z } from "zod";
-import { channels } from "@/server/db/schema";
+import { channels, sensorChannels, sensors } from "@/server/db/schema";
 import {
   assertDatasetInOrganization,
   getOrCreateDbUser,
@@ -87,11 +87,25 @@ export const channelsRouter = createTRPCRouter({
       organizationId,
     });
 
-      return ctx.db
-        .select()
+      const rows = await ctx.db
+        .select({
+          id: channels.id,
+          name: channels.name,
+          unit: channels.unit,
+          dataType: channels.dataType,
+          hypertableColName: channels.hypertableColName,
+          createdAt: channels.createdAt,
+          updatedAt: channels.updatedAt,
+          sensorName: sensors.name,
+          sensorId: sensors.id,
+        })
         .from(channels)
+        .leftJoin(sensorChannels, eq(channels.sensorChannelId, sensorChannels.id))
+        .leftJoin(sensors, eq(sensorChannels.sensorId, sensors.id))
         .where(eq(channels.datasetId, input.datasetId))
-        .orderBy(asc(channels.name));
+        .orderBy(asc(sensors.name), asc(channels.name));
+
+      return rows;
     }),
 
   updateChannel: protectedProcedure
