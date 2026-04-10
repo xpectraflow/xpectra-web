@@ -317,7 +317,6 @@ export function TelemetryChart({
         textStyle: { color: "#71717a", fontSize: 9 },
       },
     ],
-
     series: echartsSeries,
   };
 
@@ -326,7 +325,7 @@ export function TelemetryChart({
   const hasError  = dataQuery.isError;
 
   return (
-    <div ref={containerRef} style={{ height }} className="relative w-full">
+    <div ref={containerRef} style={{ height: height ? `${height}px` : "100%" }} className="relative w-full overflow-hidden telemetry-chart-container">
       {/* Sync toggle */}
       <button
         onClick={toggleLinked}

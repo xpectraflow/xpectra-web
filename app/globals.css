@@ -93,3 +93,17 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans);
 }
+
+/* Ensure telemetry charts fill the screen when their parent is in browser fullscreen mode */
+:fullscreen .telemetry-card,
+:fullscreen .telemetry-chart-container {
+  height: 100% !important;
+  flex: 1 !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+:fullscreen .echarts-for-react {
+  height: 100% !important;
+  flex: 1 !important;
+}

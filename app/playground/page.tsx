@@ -3,6 +3,7 @@
 import { usePlayground, PlottedDataset } from "@/components/playground/PlaygroundContext";
 import { SectionHeader } from "@/components/playground/SectionHeader";
 import { TelemetryChart, CHART_PALETTE } from "@/components/playground/TelemetryChart";
+import { FullscreenPanel } from "@/components/playground/FullscreenPanel";
 import { trpc } from "@/lib/trpc";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useRef, Suspense } from "react";
@@ -136,60 +137,64 @@ function PlottedDatasetBlock({ dataset }: { dataset: PlottedDataset }) {
         </p>
       ) : isOverlay ? (
         /* OVERLAY MODE: All channels in one chart */
-        <div className="rounded-lg bg-[#121212] p-4 ring-1 ring-[#27272a]">
-          <div className="mb-3 flex flex-wrap gap-3">
-            {channels.map((ch) => (
-              <div key={ch.id} className="flex items-center gap-2">
-                <span
-                  className="h-2 w-2 rounded-full shrink-0"
-                  style={{ background: colorMap[ch.id] }}
-                />
-                <span className="text-[11px] font-medium text-foreground">{labelMap[ch.id]}</span>
-                {ch.unit && (
-                  <span className="font-mono text-[9px] text-muted-foreground/40 italic">
-                    [{ch.unit}]
-                  </span>
-                )}
-              </div>
-            ))}
+        <FullscreenPanel className="rounded-lg ring-1 ring-[#27272a] overflow-hidden">
+          <div className="bg-[#121212] p-4 flex flex-col telemetry-card">
+            <div className="mb-3 flex flex-wrap gap-3">
+              {channels.map((ch) => (
+                <div key={ch.id} className="flex items-center gap-2">
+                  <span
+                    className="h-2 w-2 rounded-full shrink-0"
+                    style={{ background: colorMap[ch.id] }}
+                  />
+                  <span className="text-[11px] font-medium text-foreground">{labelMap[ch.id]}</span>
+                  {ch.unit && (
+                    <span className="font-mono text-[9px] text-muted-foreground/40 italic">
+                      [{ch.unit}]
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+            <TelemetryChart
+              experimentId={dataset.experimentId}
+              datasetId={dataset.datasetId}
+              channelIds={channels.map((c) => c.id)}
+              colorMap={colorMap}
+              labelMap={labelMap}
+              height={600}
+            />
           </div>
-          <TelemetryChart
-            experimentId={dataset.experimentId}
-            datasetId={dataset.datasetId}
-            channelIds={channels.map((c) => c.id)}
-            colorMap={colorMap}
-            labelMap={labelMap}
-            height={600}
-          />
-        </div>
+        </FullscreenPanel>
       ) : (
         /* SEPARATE MODE: Grid of individual charts */
         <div className="grid gap-4 md:grid-cols-1 lg:grid-cols-2 xl:grid-cols-2">
           {channels.map((ch) => (
-            <div key={ch.id} className="group rounded-lg bg-[#121212] p-2 ring-1 ring-[#27272a] transition hover:ring-[#f97316]/20">
-              <div className="mb-2 flex items-center gap-2 px-2 pt-1">
-                <span
-                  className="h-3 w-3 rounded-sm shrink-0"
-                  style={{ background: colorMap[ch.id] }}
-                />
-                <span className="font-['Manrope',sans-serif] text-sm font-bold text-foreground truncate">
-                  {labelMap[ch.id]}
-                </span>
-                {ch.unit && (
-                  <span className="ml-auto rounded bg-[#0e0e0e] px-1.5 py-0.5 font-mono text-[9px] text-muted-foreground/60 border border-[#27272a]">
-                    {ch.unit}
+            <FullscreenPanel key={ch.id} className="rounded-lg ring-1 ring-[#27272a] overflow-hidden">
+              <div className="group bg-[#121212] p-2 transition hover:ring-[#f97316]/20 flex flex-col telemetry-card">
+                <div className="mb-2 flex items-center gap-2 px-2 pt-1">
+                  <span
+                    className="h-3 w-3 rounded-sm shrink-0"
+                    style={{ background: colorMap[ch.id] }}
+                  />
+                  <span className="font-['Manrope',sans-serif] text-sm font-bold text-foreground truncate">
+                    {labelMap[ch.id]}
                   </span>
-                )}
+                  {ch.unit && (
+                    <span className="ml-auto rounded bg-[#0e0e0e] px-1.5 py-0.5 font-mono text-[9px] text-muted-foreground/60 border border-[#27272a]">
+                      {ch.unit}
+                    </span>
+                  )}
+                </div>
+                <TelemetryChart
+                  experimentId={dataset.experimentId}
+                  datasetId={dataset.datasetId}
+                  channelIds={[ch.id]}
+                  colorMap={colorMap}
+                  labelMap={labelMap}
+                  height={350}
+                />
               </div>
-              <TelemetryChart
-                experimentId={dataset.experimentId}
-                datasetId={dataset.datasetId}
-                channelIds={[ch.id]}
-                colorMap={colorMap}
-                labelMap={labelMap}
-                height={350}
-              />
-            </div>
+            </FullscreenPanel>
           ))}
         </div>
       )}
