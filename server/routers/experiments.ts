@@ -216,4 +216,44 @@ export const experimentsRouter = createTRPCRouter({
 
       return created;
     }),
+
+  updateRuleAssociations: protectedProcedure
+    .input(z.object({ 
+      id: z.string().uuid(), 
+      ruleIds: z.array(z.string().uuid()) 
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const userId = await getOrCreateDbUser({
+        db: ctx.db,
+        ...userInfoFromSession(ctx.session),
+      });
+
+      const organizationId = await getPrimaryOrganizationIdForUser({
+        db: ctx.db,
+        userId,
+      });
+
+      await assertExperimentInOrganization({
+        db: ctx.db,
+        experimentId: input.id,
+        organizationId,
+      });
+
+      const [updated] = await ctx.db
+        .update(experiments)
+        .set({
+          ruleIds: input.ruleIds,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(eq(experiments.id, input.id), eq(experiments.organizationId, organizationId)),
+        )
+        .returning();
+
+      if (!updated) {
+        throw new TRPCError({ code: "NOT_FOUND" });
+      }
+
+      return updated;
+    }),
 });

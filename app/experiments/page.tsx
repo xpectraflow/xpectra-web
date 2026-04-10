@@ -13,6 +13,8 @@ export default function ExperimentsPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const experimentsQuery = trpc.experiments.getExperiments.useQuery();
+  const rulesQuery = trpc.rules.getRules.useQuery();
+  
   const deleteMutation = trpc.experiments.deleteExperiment.useMutation({
     onSuccess: async () => {
       await utils.experiments.getExperiments.invalidate();
@@ -30,8 +32,9 @@ export default function ExperimentsPage() {
       action={
         <Link
           href="/experiments/create"
-          className="rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground transition hover:opacity-90"
+          className="rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground transition hover:opacity-90 shadow-lg shadow-primary/10"
         >
+          <Plus className="h-4 w-4 mr-1.5 inline-block" />
           New experiment
         </Link>
       }
@@ -44,12 +47,15 @@ export default function ExperimentsPage() {
             placeholder="Search experiments by name..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full rounded-lg border border-border bg-card py-2 pl-10 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-input focus:outline-none"
+            className="w-full rounded-lg border border-border bg-card py-2.5 pl-10 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary/50 focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all"
           />
         </div>
 
-        {experimentsQuery.isLoading && (
-          <p className="text-sm text-muted-foreground">Loading experiments...</p>
+        {(experimentsQuery.isLoading || rulesQuery.isLoading) && (
+          <div className="space-y-4">
+            <div className="h-32 w-full animate-pulse rounded-xl border border-border bg-muted/20" />
+            <div className="h-32 w-full animate-pulse rounded-xl border border-border bg-muted/20" />
+          </div>
         )}
 
         {experimentsQuery.error && (
@@ -61,6 +67,7 @@ export default function ExperimentsPage() {
         {experimentsQuery.data && (
           <ExperimentList
             experiments={experimentsQuery.data}
+            allRules={rulesQuery.data ?? []}
             searchQuery={searchQuery}
             deletingId={deletingId}
             onDelete={(id) => {
@@ -73,3 +80,4 @@ export default function ExperimentsPage() {
     </PageLayout>
   );
 }
+

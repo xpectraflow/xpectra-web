@@ -2,14 +2,16 @@
 
 import { useState } from 'react';
 import { PageLayout } from '@/components/PageLayout';
-import { Search, Plus, Shield, Activity, Settings, Edit3, Trash2, FlaskConical } from 'lucide-react';
+import { Search, Plus, Shield, Activity, Settings, Edit3, Trash2, Link2 } from 'lucide-react';
 import { CreateRuleDialog } from '@/components/rules/CreateRuleDialog';
+import { AttachRuleDialog } from '@/components/rules/AttachRuleDialog';
 import { trpc } from '@/lib/trpc';
 import { toast } from 'sonner';
 
 export default function RulesPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [linkingRule, setLinkingRule] = useState<{ id: string, name: string } | null>(null);
 
   const utils = trpc.useUtils();
   const rulesQuery = trpc.rules.getRules.useQuery();
@@ -56,25 +58,25 @@ export default function RulesPage() {
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <input
             type="text"
-            placeholder="Search policies by name or condition..."
+            placeholder="Search rules by name or condition..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full rounded-lg border border-border bg-card py-2.5 pl-10 pr-4 text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-[#f97316]/50 focus:outline-none focus:ring-4 focus:ring-[#f97316]/10 transition-all font-['Manrope',sans-serif]"
           />
         </div>
 
-        {/* Policies List */}
+        {/* Rules List */}
         {rulesQuery.isLoading ? (
           <div className="flex h-64 items-center justify-center">
             <div className="flex flex-col items-center gap-2">
               <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
-              <p className="text-sm text-muted-foreground">Fetching policies...</p>
+              <p className="text-sm text-muted-foreground">Fetching rules...</p>
             </div>
           </div>
         ) : filteredRules.length === 0 ? (
           <div className="rounded-xl border border-dashed border-border bg-card/50 p-20 text-center">
             <Shield className="mx-auto h-12 w-12 text-muted-foreground/20" />
-            <p className="mt-4 text-sm text-muted-foreground">No policies found matching your criteria.</p>
+            <p className="mt-4 text-sm text-muted-foreground">No rules found matching your criteria.</p>
           </div>
         ) : (
           <div className="overflow-hidden rounded-xl border border-border bg-card">
@@ -132,6 +134,12 @@ export default function RulesPage() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex justify-end gap-1.5">
+                        <button 
+                          onClick={() => setLinkingRule({ id: rule.id, name: rule.name })}
+                          className="inline-flex items-center gap-1 rounded-md border border-input px-2 py-1 text-xs text-muted-foreground transition hover:bg-accent hover:text-accent-foreground"
+                        >
+                          <Link2 className="h-3.5 w-3.5" /> Attach
+                        </button>
                         {!rule.isManaged && (
                           <>
                             <button className="inline-flex items-center gap-1 rounded-md border border-input px-2 py-1 text-xs text-muted-foreground transition hover:bg-accent hover:text-accent-foreground">
@@ -161,9 +169,16 @@ export default function RulesPage() {
       </div>
 
       {isDialogOpen && <CreateRuleDialog onClose={() => setIsDialogOpen(false)} />}
+      {linkingRule && (
+        <AttachRuleDialog 
+          rule={linkingRule} 
+          onClose={() => setLinkingRule(null)} 
+        />
+      )}
     </PageLayout>
   );
 }
+
 
 
 

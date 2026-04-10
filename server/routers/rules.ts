@@ -16,7 +16,7 @@ const createRuleInput = z.object({
   name: z.string().trim().min(2).max(120),
   description: z.string().trim().max(2000).nullish(),
   type: ruleTypeEnum,
-  config: z.record(z.unknown()).default({}),
+  config: z.record(z.string(), z.unknown()).default({}),
 });
 
 const ruleIdInput = z.object({

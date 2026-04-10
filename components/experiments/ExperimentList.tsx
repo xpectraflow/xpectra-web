@@ -18,10 +18,12 @@ type ExperimentListItem = {
   status: string;
   createdAt: Date | string;
   sensorConfig?: SensorConfig | null;
+  ruleIds?: string[];
 };
 
 type ExperimentListProps = {
   experiments: ExperimentListItem[];
+  allRules?: Array<{ id: string; name: string; isManaged: boolean }>;
   searchQuery?: string;
   deletingId?: string | null;
   onDelete?: (id: string) => void;
@@ -29,6 +31,7 @@ type ExperimentListProps = {
 
 export function ExperimentList({
   experiments,
+  allRules = [],
   searchQuery = "",
   deletingId,
   onDelete,
@@ -73,8 +76,8 @@ export function ExperimentList({
   }
 
   const statusBadge: Record<string, string> = {
-    draft:    "bg-yellow-500/10 text-yellow-600 border-yellow-500/30",
-    active:   "bg-green-500/10 text-green-600 border-green-500/30",
+    draft: "bg-yellow-500/10 text-yellow-600 border-yellow-500/30",
+    active: "bg-green-500/10 text-green-600 border-green-500/30",
     archived: "bg-muted/50 text-muted-foreground border-border",
   };
 
@@ -86,6 +89,7 @@ export function ExperimentList({
             <th className="px-4 py-3">Name</th>
             <th className="px-4 py-3">Status</th>
             <th className="px-4 py-3">Sensors</th>
+            <th className="px-4 py-3">Rules</th>
             <th className="px-4 py-3">Created</th>
             <th className="px-4 py-3 text-right">Actions</th>
           </tr>
@@ -111,15 +115,37 @@ export function ExperimentList({
                 </td>
                 <td className="px-4 py-3">
                   <span
-                    className={`rounded-full border px-2 py-0.5 text-xs font-medium ${
-                      statusBadge[experiment.status] ?? statusBadge.archived
-                    }`}
+                    className={`rounded-full border px-2 py-0.5 text-xs font-medium ${statusBadge[experiment.status] ?? statusBadge.archived
+                      }`}
                   >
                     {experiment.status}
                   </span>
                 </td>
                 <td className="px-4 py-3 text-muted-foreground text-xs">
                   {sensorCount > 0 ? `${sensorCount} sensor${sensorCount !== 1 ? "s" : ""}` : "—"}
+                </td>
+                <td className="px-4 py-3">
+                  <div className="flex flex-wrap gap-1">
+                    {experiment.ruleIds && experiment.ruleIds.length > 0 ? (
+                      experiment.ruleIds.map((rid) => {
+                        const ruleObj = allRules.find((r) => r.id === rid);
+                        return (
+                          <span
+                            key={rid}
+                            className={`inline-flex items-center rounded-md border px-1.5 py-0.5 text-[10px] font-medium ${ruleObj?.isManaged
+                              ? "bg-[#f97316]/5 text-[#f97316]/80 border-[#f97316]/20"
+                              : "bg-muted/30 text-muted-foreground border-border"
+                              }`}
+                            title={ruleObj?.name ?? "Unknown Rule"}
+                          >
+                            {ruleObj?.name ?? "Unknown"}
+                          </span>
+                        );
+                      })
+                    ) : (
+                      <span className="text-[10px] text-muted-foreground/30 italic whitespace-nowrap">No rules</span>
+                    )}
+                  </div>
                 </td>
                 <td className="px-4 py-3 text-muted-foreground text-xs">
                   {new Date(experiment.createdAt).toLocaleString()}
