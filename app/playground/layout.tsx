@@ -14,7 +14,23 @@ function PlaygroundShell({ children }: { children: ReactNode }) {
   const plotAllChannels = useCallback((dataset: PlottedDataset) => {
     setPlottedDatasets((prev) => {
       const exists = prev.some((d) => d.datasetId === dataset.datasetId);
-      if (exists) return prev;
+      if (exists) {
+        // Clear filtered channels if it already existed to show ALL
+        return prev.map((d) => (d.datasetId === dataset.datasetId ? { ...d, channelIds: undefined } : d));
+      }
+      return [...prev, dataset];
+    });
+  }, []);
+
+  const plotChannels = useCallback((dataset: PlottedDataset) => {
+    setPlottedDatasets((prev) => {
+      const idx = prev.findIndex((d) => d.datasetId === dataset.datasetId);
+      if (idx > -1) {
+        // Replace selection
+        const updated = [...prev];
+        updated[idx] = dataset;
+        return updated;
+      }
       return [...prev, dataset];
     });
   }, []);
@@ -30,6 +46,7 @@ function PlaygroundShell({ children }: { children: ReactNode }) {
         setSelectedExperimentId,
         plottedDatasets,
         plotAllChannels,
+        plotChannels,
         removePlottedDataset,
       }}
     >

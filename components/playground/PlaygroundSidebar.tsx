@@ -40,15 +40,88 @@ const DATASET_STATUS_COLOR: Record<string, string> = {
 function DatasetChannels({
   experimentId,
   datasetId,
+  datasetName,
 }: {
   experimentId: string;
   datasetId: string;
+  datasetName: string;
 }) {
+  const { plotChannels } = usePlayground();
+  const { menu, open: openMenu, close: closeMenu } = useContextMenu();
+
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [lastClickedId, setLastClickedId] = useState<string | null>(null);
+
   const channelsQuery = trpc.channels.getChannels.useQuery(
     { experimentId, datasetId },
     { enabled: true }
   );
   const channels = channelsQuery.data ?? [];
+
+  const handleChannelClick = (e: React.MouseEvent, channel: any) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const id = channel.id;
+
+    if (e.shiftKey && lastClickedId) {
+      // Range selection
+      const currentIndex = channels.findIndex((c) => c.id === id);
+      const lastIndex = channels.findIndex((c) => c.id === lastClickedId);
+      if (currentIndex !== -1 && lastIndex !== -1) {
+        const start = Math.min(currentIndex, lastIndex);
+        const end = Math.max(currentIndex, lastIndex);
+        const rangeIds = channels.slice(start, end + 1).map((c) => c.id);
+        setSelectedIds(Array.from(new Set([...selectedIds, ...rangeIds])));
+      }
+    } else if (e.ctrlKey || e.metaKey) {
+      // Toggle
+      setSelectedIds((prev) =>
+        prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+      );
+    } else {
+      // Single select
+      setSelectedIds([id]);
+    }
+    setLastClickedId(id);
+  };
+
+  const handleContextMenu = (e: React.MouseEvent, channel: any) => {
+    e.preventDefault();
+    
+    // If we right-click an unselected item, select it alone
+    let currentSelection = selectedIds;
+    if (!selectedIds.includes(channel.id)) {
+      currentSelection = [channel.id];
+      setSelectedIds(currentSelection);
+      setLastClickedId(channel.id);
+    }
+
+    const items: ContextMenuItem[] = [
+      {
+        type: "item",
+        label: `Plot selected channels (${currentSelection.length})`,
+        icon: <BarChart2 className="h-3.5 w-3.5" />,
+        onClick: () => {
+          plotChannels({
+            datasetId,
+            datasetName,
+            experimentId,
+            channelIds: currentSelection,
+          });
+          setSelectedIds([]); // Clear after plotting
+        },
+      },
+      { type: "separator" },
+      {
+        type: "item",
+        label: "Clear selection",
+        onClick: () => setSelectedIds([]),
+      },
+    ];
+
+    openMenu(e, items);
+  };
 
   if (channelsQuery.isLoading) {
     return (
@@ -67,20 +140,37 @@ function DatasetChannels({
   }
 
   return (
-    <>
-      {channels.map((ch) => (
-        <div
-          key={ch.id}
-          className="flex items-center gap-2 rounded px-3 py-1 text-[11px] text-muted-foreground/70 transition hover:bg-[#1c1b1b] hover:text-muted-foreground"
-        >
-          <Hash className="h-2.5 w-2.5 shrink-0 text-muted-foreground/30" />
-          <span className="flex-1 truncate">{ch.name}</span>
-          {ch.unit && (
-            <span className="font-mono text-[10px] text-muted-foreground/40">{ch.unit}</span>
-          )}
-        </div>
-      ))}
-    </>
+    <div className="relative">
+      {channels.map((ch) => {
+        const isSelected = selectedIds.includes(ch.id);
+        return (
+          <div
+            key={ch.id}
+            onClick={(e) => handleChannelClick(e, ch)}
+            onContextMenu={(e) => handleContextMenu(e, ch)}
+            className={`flex cursor-pointer select-none items-center gap-2 rounded px-3 py-1 text-[11px] transition-all ${
+              isSelected
+                ? "bg-[#f97316]/10 text-foreground ring-1 ring-inset ring-[#f97316]/30"
+                : "text-muted-foreground/70 hover:bg-[#1c1b1b] hover:text-muted-foreground"
+            }`}
+          >
+            <Hash
+              className={`h-2.5 w-2.5 shrink-0 ${
+                isSelected ? "text-[#f97316]" : "text-muted-foreground/30"
+              }`}
+            />
+            <span className="flex-1 truncate">{ch.name}</span>
+            {ch.unit && (
+              <span className="font-mono text-[10px] opacity-40">{ch.unit}</span>
+            )}
+          </div>
+        );
+      })}
+
+      {menu && (
+        <ContextMenu x={menu.x} y={menu.y} items={menu.items} onClose={closeMenu} />
+      )}
+    </div>
   );
 }
 
@@ -149,7 +239,11 @@ function DatasetRow({
 
       {open && (
         <div className="ml-5 mt-0.5 space-y-0">
-          <DatasetChannels experimentId={experimentId} datasetId={dataset.id} />
+          <DatasetChannels 
+            experimentId={experimentId} 
+            datasetId={dataset.id} 
+            datasetName={dataset.name}
+          />
         </div>
       )}
 

@@ -67,11 +67,16 @@ function PlottedDatasetBlock({ dataset }: { dataset: PlottedDataset }) {
     datasetId: dataset.datasetId,
   });
 
-  const channels = channelsQuery.data ?? [];
+  const rawChannels = channelsQuery.data ?? [];
+  
+  // Filter channels if a specific subset was requested
+  const channels = dataset.channelIds 
+    ? rawChannels.filter(ch => dataset.channelIds?.includes(ch.id))
+    : rawChannels;
 
   // Assign a stable color per channel from the palette
   const colorMap: Record<string, string> = {};
-  channels.forEach((ch, i) => {
+  rawChannels.forEach((ch, i) => {
     colorMap[ch.id] = CHART_PALETTE[i % CHART_PALETTE.length];
   });
 
@@ -84,7 +89,7 @@ function PlottedDatasetBlock({ dataset }: { dataset: PlottedDataset }) {
           {dataset.datasetName}
         </h2>
         <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground/50">
-          {channels.length} channels
+          {channels.length} {dataset.channelIds ? "selected channels" : "channels"}
         </span>
         <button
           type="button"
@@ -104,7 +109,7 @@ function PlottedDatasetBlock({ dataset }: { dataset: PlottedDataset }) {
         </div>
       ) : channels.length === 0 ? (
         <p className="py-6 text-center font-mono text-xs text-muted-foreground/40">
-          No channels registered for this dataset
+          {dataset.channelIds ? "Selected channels not found" : "No channels registered for this dataset"}
         </p>
       ) : (
         <div className="grid gap-4 md:grid-cols-2">

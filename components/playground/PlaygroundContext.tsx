@@ -4,6 +4,8 @@ export type PlottedDataset = {
   datasetId: string;
   datasetName: string;
   experimentId: string;
+  /** Optional subset of channel IDs to plot. If missing, plots all. */
+  channelIds?: string[];
 };
 
 type PlaygroundContextValue = {
@@ -13,6 +15,7 @@ type PlaygroundContextValue = {
   /** Datasets whose channels are plotted in the canvas */
   plottedDatasets: PlottedDataset[];
   plotAllChannels: (dataset: PlottedDataset) => void;
+  plotChannels: (dataset: PlottedDataset) => void;
   removePlottedDataset: (datasetId: string) => void;
 };
 
