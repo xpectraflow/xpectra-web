@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { PageLayout } from "@/components/PageLayout";
 import { trpc } from "@/lib/trpc";
@@ -59,22 +59,24 @@ export default function CreateDatasetPage() {
   const { data: sensors = [] } = trpc.sensors.getSensors.useQuery();
 
   const selectedExperiment = experiments.find(e => e.id === selectedExperimentId);
-  const availableChannels: ChannelInfo[] = [];
-
-  if (selectedExperiment?.sensorConfig?.sensors) {
-    selectedExperiment.sensorConfig.sensors.forEach(sConfig => {
-      const sensor = sensors.find(s => s.id === sConfig.sensorId);
-      const indices = sConfig.channelIndices || [];
-      indices.forEach((expIdx, localIdx) => {
-        availableChannels.push({
-          sensorId: sConfig.sensorId,
-          sensorName: sensor?.name || `Sensor ${sConfig.sensorId.slice(0, 4)}`,
-          channelIndex: localIdx,
-          experimentChannelIndex: expIdx,
+  const availableChannels: ChannelInfo[] = useMemo(() => {
+    const channels: ChannelInfo[] = [];
+    if (selectedExperiment?.sensorConfig?.sensors) {
+      selectedExperiment.sensorConfig.sensors.forEach(sConfig => {
+        const sensor = sensors.find(s => s.id === sConfig.sensorId);
+        const indices = sConfig.channelIndices || [];
+        indices.forEach((expIdx, localIdx) => {
+          channels.push({
+            sensorId: sConfig.sensorId,
+            sensorName: sensor?.name || `Sensor ${sConfig.sensorId.slice(0, 4)}`,
+            channelIndex: localIdx,
+            experimentChannelIndex: expIdx,
+          });
         });
       });
-    });
-  }
+    }
+    return channels;
+  }, [selectedExperiment, sensors]);
 
   const processFile = async (selectedFile: File) => {
     setFile(selectedFile);

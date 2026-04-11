@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { ExcelTable } from "@/components/ui/excel-style-table";
 import { Check, AlertCircle, Clock, Hash, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -35,8 +35,14 @@ export const DataMapper: React.FC<DataMapperProps> = ({
     channelMappings: {},
   });
 
+  const lastHeadersRef = useRef<string[] | null>(null);
+
   // Auto-map based on header names
   useEffect(() => {
+    // Only run if headers have actually changed (e.g. new file upload)
+    if (lastHeadersRef.current === headers) return;
+    lastHeadersRef.current = headers;
+
     const newMapping: MappingState = {
       timestampColumn: null,
       channelMappings: {},
