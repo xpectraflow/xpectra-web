@@ -1,15 +1,20 @@
 import { createContext, useContext } from "react";
 
-export type PlottedDataset = {
-  /** Unique ID for this specific plot block on the canvas */
-  id: string;
+export type PlottedChannelGroup = {
   datasetId: string;
   datasetName: string;
   experimentId: string;
+  /** Optional subset of channel IDs to plot. If missing, plots all. */
+  channelIds: string[];
+};
+
+export type PlottedDataset = {
+  /** Unique ID for this specific plot block on the canvas */
+  id: string;
   /** Whether to show each channel in its own panel or all together */
   layout: "separate" | "overlay";
-  /** Optional subset of channel IDs to plot. If missing, plots all. */
-  channelIds?: string[];
+  /** Channels grouped by dataset */
+  groups: PlottedChannelGroup[];
 };
 
 export type VirtualChannel = {
@@ -24,9 +29,10 @@ type PlaygroundContextValue = {
   selectedExperimentId: string | null;
   setSelectedExperimentId: (id: string) => void;
 
-  /** Plots current shown in the playground canvas */
+  /** Plots currently shown in the playground canvas */
   plottedDatasets: PlottedDataset[];
   addPlot: (dataset: Omit<PlottedDataset, "id">) => void;
+  addToPlot: (plotId: string, group: PlottedChannelGroup) => void;
   removePlot: (plotId: string) => void;
 
   virtualChannels: VirtualChannel[];
@@ -39,6 +45,7 @@ export const PlaygroundContext = createContext<PlaygroundContextValue>({
   setSelectedExperimentId: () => {},
   plottedDatasets: [],
   addPlot: () => {},
+  addToPlot: () => {},
   removePlot: () => {},
   virtualChannels: [],
   addVirtualChannel: () => {},

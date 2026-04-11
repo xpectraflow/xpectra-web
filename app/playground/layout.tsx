@@ -5,7 +5,7 @@ import { SessionProvider } from "next-auth/react";
 import { TrpcProvider } from "@/components/providers/TrpcProvider";
 import { DeviceProvider } from "@/contexts/DeviceContext";
 import { PlaygroundSidebar } from "@/components/playground/PlaygroundSidebar";
-import { PlaygroundContext, PlottedDataset, VirtualChannel } from "@/components/playground/PlaygroundContext";
+import { PlaygroundContext, PlottedDataset, VirtualChannel, PlottedChannelGroup } from "@/components/playground/PlaygroundContext";
 
 function PlaygroundShell({ children }: { children: ReactNode }) {
   const [selectedExperimentId, setSelectedExperimentId] = useState<string | null>(null);
@@ -25,11 +25,10 @@ function PlaygroundShell({ children }: { children: ReactNode }) {
 
   const addPlot = useCallback((newPlot: Omit<PlottedDataset, "id">) => {
     setPlottedDatasets((prev) => {
-      // Check if exact same plot already exists to avoid duplicates
+      // Check if duplicate block with same groups exists
       const isDuplicate = prev.some((d) => 
-        d.datasetId === newPlot.datasetId && 
         d.layout === newPlot.layout && 
-        JSON.stringify(d.channelIds) === JSON.stringify(newPlot.channelIds)
+        JSON.stringify(d.groups) === JSON.stringify(newPlot.groups)
       );
       if (isDuplicate) return prev;
 
@@ -39,6 +38,29 @@ function PlaygroundShell({ children }: { children: ReactNode }) {
       };
       return [...prev, plotWithId];
     });
+  }, []);
+
+  const addToPlot = useCallback((plotId: string, group: PlottedChannelGroup) => {
+    setPlottedDatasets((prev) => prev.map(plot => {
+      if (plot.id !== plotId) return plot;
+      
+      // Check if dataset already in this plot
+      const existingGroup = plot.groups.find(g => g.datasetId === group.datasetId);
+      if (existingGroup) {
+        return {
+          ...plot,
+          groups: plot.groups.map(g => g.datasetId === group.datasetId 
+            ? { ...g, channelIds: Array.from(new Set([...g.channelIds, ...group.channelIds])) }
+            : g
+          )
+        };
+      } else {
+        return {
+          ...plot,
+          groups: [...plot.groups, group]
+        };
+      }
+    }));
   }, []);
 
   const removePlot = useCallback((plotId: string) => {
@@ -52,6 +74,7 @@ function PlaygroundShell({ children }: { children: ReactNode }) {
         setSelectedExperimentId,
         plottedDatasets,
         addPlot,
+        addToPlot,
         removePlot,
         virtualChannels,
         addVirtualChannel,

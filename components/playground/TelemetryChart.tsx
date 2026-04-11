@@ -7,7 +7,7 @@ import * as echarts from "echarts";
 import { Loader2, AlertCircle, BarChart2, Link2, Link2Off, Activity, MoreVertical, Maximize2, Minimize2 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { usePlaygroundTimeStore } from "@/stores/playgroundTime";
-import { usePlayground } from "@/components/playground/PlaygroundContext";
+import { usePlayground, PlottedChannelGroup } from "@/components/playground/PlaygroundContext";
 import { useContextMenu, ContextMenuItem, ContextMenu } from "@/components/playground/ContextMenu";
 
 // ─── Naive Radix-2 FFT ────────────────────────────────────────────────────────
@@ -30,7 +30,7 @@ function computeFFT(dataArray: number[], dtMs: number) {
       t = imag[i]; imag[i] = imag[j]; imag[j] = t;
     }
   }
-  
+
   for (k = 1; k < n; k *= 2) {
     let theta = -Math.PI / k;
     let wReal = Math.cos(theta);
@@ -50,39 +50,37 @@ function computeFFT(dataArray: number[], dtMs: number) {
       }
     }
   }
-  
+
   let mag = [];
   let freq = [];
   let fs = 1000 / dtMs; // Sample freq in Hz
-  
+
   for (i = 0; i < n / 2; i++) { // only positive frequencies
-    mag.push(Math.sqrt(real[i]*real[i] + imag[i]*imag[i]) / n);
+    mag.push(Math.sqrt(real[i] * real[i] + imag[i] * imag[i]) / n);
     freq.push(i * (fs / n));
   }
-  
+
   return { freq, mag };
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface TelemetryChartProps {
-  experimentId: string;
-  datasetId: string;
-  /** The specific channel IDs to plot in this panel */
-  channelIds: string[];
-  /** Map of channelId -> color for consistent palette */
+  /** Channels grouped by dataset to plot in this panel */
+  groups: PlottedChannelGroup[];
+  /** Map of globalId -> color */
   colorMap: Record<string, string>;
-  /** Map of channelId -> display name (hierarchical disambiguation) */
+  /** Map of globalId -> display name */
   labelMap?: Record<string, string>;
   height?: number;
   onToggleFullscreen?: () => void;
   isFullscreen?: boolean;
 }
 
-// ─── Color palette (matches the dark McLaren/mission-control aesthetic) ───────
+// ─── Color palette ────────────────────────────────────────────────────────────
 
 export const CHART_PALETTE = [
-  "#f97316", // orange  (brand)
+  "#f97316", // orange
   "#38bdf8", // sky blue
   "#a78bfa", // violet
   "#34d399", // emerald
@@ -95,18 +93,23 @@ export const CHART_PALETTE = [
 // ─── Time formatter ───────────────────────────────────────────────────────────
 
 function autoTimeFormatter(rangeMs: number) {
-  if (rangeMs < 60_000)        return "{HH}:{mm}:{ss}";
-  if (rangeMs < 3_600_000)     return "{HH}:{mm}:{ss}";
-  if (rangeMs < 86_400_000)    return "{MM}-{dd} {HH}:{mm}";
-  return "{yyyy}-{MM}-{dd}";
+  const formatTime = (ms: number) => {
+    const totalSeconds = Math.floor(ms / 1000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    const millis = Math.floor((ms % 1000) / 100);
+    return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}.${millis}`;
+  };
+  return (val: number) => formatTime(val);
 }
+
+/** Utility to create a globally unique ID for a channel in a plot */
+export const getGlobalId = (datasetId: string, channelId: string) => `${datasetId}:${channelId}`;
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function TelemetryChart({
-  experimentId,
-  datasetId,
-  channelIds,
+  groups,
   colorMap,
   labelMap,
   height,
@@ -121,290 +124,212 @@ export function TelemetryChart({
   const { startTime, endTime, linked, setTimeRange, toggleLinked } = usePlaygroundTimeStore();
   const { virtualChannels } = usePlayground();
 
-  // Pick out virtual vs physical
-  const plottingVirtuals = virtualChannels.filter(vc => channelIds.includes(vc.id));
-  const plottingPhysicals = channelIds.filter(id => !id.startsWith("vc_"));
-
-  // Fetch channel metadata to resolve names in formulas
-  const channelsMetaQuery = trpc.channels.getChannels.useQuery(
-    { experimentId, datasetId },
-    { enabled: plottingVirtuals.length > 0 }
+  // 1. Fetch channel metadata for each group (needed for virtual channel resolution)
+  const metaQueries = trpc.useQueries((t) =>
+    groups.map((g) =>
+      t.channels.getChannels({
+        experimentId: g.experimentId,
+        datasetId: g.datasetId,
+      })
+    )
   );
 
-  const neededPhysicalIds = new Set(plottingPhysicals);
-  if (channelsMetaQuery.data && plottingVirtuals.length > 0) {
-    const allChannels = channelsMetaQuery.data;
-    plottingVirtuals.forEach(vc => {
-      const tokens = vc.expression.match(/[a-zA-Z0-9_\.]+/g) || [];
-      tokens.forEach(token => {
-        // Try exact match on sensor.channel or short channel name, normalized
-        const match = allChannels.find(c => {
-          const normalizedShort = c.name.replace(/[^a-zA-Z0-9_\.]+/g, "_");
-          const normalizedFull = `${c.sensorName}.${c.name}`.replace(/[^a-zA-Z0-9_\.]+/g, "_");
-          return normalizedShort === token || normalizedFull === token;
+  // 1.5 Fetch time ranges for ALL datasets to establish baselines
+  const timeRanges = trpc.useQueries((t) =>
+    groups.map((g) =>
+      t.telemetry.getDatasetTimeRange({
+        experimentId: g.experimentId,
+        datasetId: g.datasetId,
+      })
+    )
+  );
+
+  // 2. Determine exactly which physical channels we need to fetch for each dataset.
+  // This includes physical channels being plotted AND those needed as inputs for virtual channels.
+  const resolvedGroups = useMemo(() => {
+    return groups.map((g, idx) => {
+      const allChannels = metaQueries[idx].data ?? [];
+      const isPlotAll = !g.channelIds || g.channelIds.length === 0;
+      
+      const plottingVirtuals = virtualChannels.filter(vc => vc.datasetId === g.datasetId && (isPlotAll || g.channelIds.includes(vc.id)));
+      
+      // If plotting all, take all physical channels. Otherwise filter by specified IDs.
+      const plottingPhysicals = isPlotAll 
+        ? allChannels.map(c => c.id)
+        : g.channelIds.filter(id => !id.startsWith("vc_"));
+
+      const neededPhysicalIds = new Set(plottingPhysicals);
+      plottingVirtuals.forEach(vc => {
+        const tokens = vc.expression.match(/[a-zA-Z0-9_\.]+/g) || [];
+        tokens.forEach(token => {
+          const matched = allChannels.find(c => c.name === token || `${c.sensorName}.${c.name}` === token);
+          if (matched) neededPhysicalIds.add(matched.id);
         });
-        if (match) neededPhysicalIds.add(match.id);
       });
+
+      return {
+        ...g,
+        plottingVirtuals,
+        plottingPhysicals,
+        neededPhysicalIds: Array.from(neededPhysicalIds),
+        meta: allChannels,
+      };
     });
-  }
+  }, [groups, metaQueries, virtualChannels]);
 
-  // ── Initialize time range from dataset if not yet set ──────────────────────
-  const timeRangeQuery = trpc.telemetry.getDatasetTimeRange.useQuery(
-    { experimentId, datasetId },
-    {
-      enabled: true, // Always fetch/keep dataset bounds for absolute scale
-      refetchOnWindowFocus: false,
-    }
+  // 3. Multi-dataset telemetry fetch
+  const dataQueries = trpc.useQueries((t) =>
+    resolvedGroups.map((rg, idx) => {
+      const baseTime = timeRanges[idx].data?.startTime ?? 0;
+      return {
+        ...t.telemetry.getChannelData({
+          experimentId: rg.experimentId,
+          datasetId: rg.datasetId,
+          channelIds: rg.neededPhysicalIds,
+          startTime: (startTime ?? 0) + baseTime,
+          endTime: (endTime ?? Date.now()) + baseTime,
+        }),
+        enabled: startTime !== null && endTime !== null && isInView.current && timeRanges[idx].status === "success",
+      };
+    })
   );
 
-  const { initTimeRange } = usePlaygroundTimeStore();
-  useEffect(() => {
-    if (timeRangeQuery.data?.startTime && timeRangeQuery.data?.endTime) {
-      initTimeRange(timeRangeQuery.data.startTime, timeRangeQuery.data.endTime);
-    }
-  }, [timeRangeQuery.data, initTimeRange]);
-
-  // ── Sync group connection (Hover/Tooltip sync) ──────────────────────────
-  useEffect(() => {
-    if (chartInstance && linked) {
-      // Connect to the synchronized group
-      chartInstance.group = "playground-sync";
-      echarts.connect("playground-sync");
-    } else if (chartInstance) {
-      // Unlink from the group
-      chartInstance.group = "";
-    }
-  }, [linked, chartInstance]);
-
-  // ── Fetch bucketed data — re-fires on every startTime/endTime change ───────
-  const dataQuery = trpc.telemetry.getChannelData.useQuery(
-    {
-      experimentId,
-      datasetId,
-      channelIds: Array.from(neededPhysicalIds),
-      startTime: startTime ?? 0,
-      endTime: endTime ?? Date.now(),
-    },
-    {
-      enabled: !!startTime && !!endTime && neededPhysicalIds.size > 0 && isInView.current,
-      refetchOnWindowFocus: false,
-      staleTime: 0, // always re-fetch when time range changes
-    }
-  );
-
-  // ── IntersectionObserver: fetch only when in viewport ─────────────────────
+  // IntersectionObserver to enable fetching only when visible
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
-    const obs = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting && !isInView.current) {
-          isInView.current = true;
-          // Trigger re-fetch by invalidating manually if there are channels
-          if (neededPhysicalIds.size > 0) {
-            dataQuery.refetch();
-          }
-        }
-      },
-      { threshold: 0.1 }
-    );
+    const obs = new IntersectionObserver(([ent]) => {
+      if (ent.isIntersecting && !isInView.current) {
+        isInView.current = true;
+        dataQueries.forEach(q => q.refetch());
+      }
+    }, { threshold: 0.1 });
     obs.observe(el);
     return () => obs.disconnect();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [dataQueries]);
 
-  // ── Handle dataZoom → update global store (Tier 2: viewport-aware) ────────
-  const handleDataZoom = useCallback(
-    () => {
-      // If we are linked, we want to update the global time store
-      // so other charts can pick it up and re-fetch high-res data.
-      if (!linked || !chartInstance) return;
-      
-      const option = chartInstance.getOption() as any;
-      const dz = option.dataZoom?.[0];
-      if (!dz) return;
+  // Primary dataset (first one) provides initial duration if none set
+  const { initTimeRange } = usePlaygroundTimeStore();
+  useEffect(() => {
+    const firstRange = timeRanges[0]?.data;
+    if (firstRange?.startTime && firstRange?.endTime && !startTime) {
+      const duration = firstRange.endTime - firstRange.startTime;
+      initTimeRange(0, duration);
+    }
+  }, [timeRanges, initTimeRange, startTime]);
 
-      // startValue and endValue are the absolute domain values (timestamps)
-      const newStart = dz.startValue;
-      const newEnd = dz.endValue;
+  // Merge results into a unified series list
+  const allSeries = useMemo(() => {
+    const combined: any[] = [];
+    resolvedGroups.forEach((rg, idx) => {
+      const query = dataQueries[idx];
+      const metadata = timeRanges[idx].data;
+      if (!query.data || !metadata) return;
 
-      if (typeof newStart === "number" && typeof newEnd === "number") {
-        // Debounce or check for meaningful change to avoid infinite loops
-        const currentStart = startTime ?? 0;
-        const currentEnd = endTime ?? 0;
-        
-        if (Math.abs(newStart - currentStart) > 1 || Math.abs(newEnd - currentEnd) > 1) {
-          setTimeRange(newStart, newEnd);
-        }
-      }
-    },
-    [linked, startTime, endTime, setTimeRange, chartInstance]
-  );
+      const baseTime = metadata.startTime ?? 0;
+      const res = query.data;
 
-  // ── Build ECharts option ──────────────────────────────────────────────────
-  const baseSeries = dataQuery.data?.series ?? [];
-  const rangeMs = (endTime ?? 0) - (startTime ?? 0);
+      // Add physical channels
+      res.series.filter((s: any) => rg.plottingPhysicals.includes(s.channelId)).forEach((s: any) => {
+        combined.push({
+          ...s,
+          points: s.points.map((p: any) => ({ ...p, t: p.t - baseTime })),
+          globalId: getGlobalId(rg.datasetId, s.channelId),
+          displayName: labelMap?.[getGlobalId(rg.datasetId, s.channelId)] ?? s.channelName
+        });
+      });
 
-  // Generate resolved series (Evaluating Virtual Channels)
-  const resolvedSeries = useMemo(() => {
-    if (plottingVirtuals.length === 0) return baseSeries.filter(s => plottingPhysicals.includes(s.channelId));
-    
-    const allChannels = channelsMetaQuery.data ?? [];
-    const idToData = new Map(baseSeries.map(s => [s.channelId, s.points]));
-
-    const newSeries = baseSeries.filter(s => plottingPhysicals.includes(s.channelId));
-
-    plottingVirtuals.forEach(vc => {
-      try {
+      // Eval and add Virtual channels (scoped to this dataset's results)
+      rg.plottingVirtuals.forEach(vc => {
         const tokens = vc.expression.match(/[a-zA-Z0-9_\.]+/g) || [];
-        const uniqueTokens = Array.from(new Set(tokens));
-        
-        // Map each token used in the expression to its data
-        const tokenToData = new Map<string, any[]>();
-        uniqueTokens.forEach(t => {
-           const channelMatch = allChannels.find(c => {
-             const normalizedShort = c.name.replace(/[^a-zA-Z0-9_\.]+/g, "_");
-             const normalizedFull = `${c.sensorName}.${c.name}`.replace(/[^a-zA-Z0-9_\.]+/g, "_");
-             return normalizedShort === t || normalizedFull === t;
-           });
-           if (channelMatch && idToData.has(channelMatch.id)) {
-             tokenToData.set(t, idToData.get(channelMatch.id)!);
-           }
+        const seriesMap = new Map();
+        res.series.forEach((s: any) => {
+          seriesMap.set(s.channelName, s);
+          seriesMap.set(`${s.sensorName}.${s.channelName}`, s);
         });
 
-        if (tokenToData.size === 0) return;
-        
-        // Pre-process expression to make it valid JS (dots to underscores)
-        // and map arguments to those safe names
-        const sortedTokens = Array.from(tokenToData.keys()).sort((a,b) => b.length - a.length);
-        let transformedExpr = vc.expression;
-        const argNames: string[] = [];
-        const argData: any[][] = [];
+        const samplesCount = res.series[0]?.points.length ?? 0;
+        if (samplesCount === 0) return;
 
-        sortedTokens.forEach((token, i) => {
-           const safeName = `_arg_${i}`;
-           // Replace only whole tokens
-           const escapedToken = token.replace(/\./g, '\\.');
-           const regex = new RegExp(`\\b${escapedToken}\\b`, 'g');
-           transformedExpr = transformedExpr.replace(regex, safeName);
-           argNames.push(safeName);
-           argData.push(tokenToData.get(token)!);
-        });
-        
-        const fn = new Function(...argNames, `return ${transformedExpr};`);
-        const refPoints = argData[0];
-        
-        const vcPoints = refPoints.map((refPt, i) => {
-          const args = argData.map(dataArr => dataArr[i]?.avg ?? 0);
-          const val = fn(...args);
-          return { t: refPt.t, min: val, max: val, avg: val, count: 1 };
-        });
-
-        newSeries.push({
+        const virtualPoints = [];
+        for (let i = 0; i < samplesCount; i++) {
+          let expr = vc.expression;
+          tokens.forEach(t => {
+            const s = seriesMap.get(t);
+            const val = s?.points[i]?.avg ?? 0;
+            expr = expr.replace(new RegExp(`\\b${t}\\b`, "g"), val.toString());
+          });
+          try {
+            // eslint-disable-next-line no-eval
+            const result = eval(expr);
+            virtualPoints.push({
+              t: res.series[0].points[i].t,
+              avg: result, min: result, max: result
+            });
+          } catch {
+            virtualPoints.push({ t: res.series[0].points[i].t, avg: 0, min: 0, max: 0 });
+          }
+        }
+        combined.push({
           channelId: vc.id,
           channelName: vc.name,
+          globalId: getGlobalId(rg.datasetId, vc.id),
+          points: virtualPoints.map(p => ({ ...p, t: p.t - baseTime })),
           unit: "Derived",
-          dataType: "float8",
-          hypertableColName: "virtual",
-          points: vcPoints
+          displayName: labelMap?.[getGlobalId(rg.datasetId, vc.id)] ?? vc.name
         });
-      } catch (e) {
-        console.error("Virtual channel eval error", e);
-      }
+      });
     });
+    return combined;
+  }, [dataQueries, resolvedGroups, labelMap, timeRanges]);
 
-    return newSeries;
-  }, [baseSeries, plottingVirtuals, plottingPhysicals, channelsMetaQuery.data]);
+  // ECharts Logic
+  const handleDataZoom = useCallback(() => {
+    if (!linked || !chartInstance) return;
+    const option = chartInstance.getOption() as any;
+    const dz = option.dataZoom?.[0];
+    if (dz && typeof dz.startValue === "number" && typeof dz.endValue === "number") {
+      if (Math.abs(dz.startValue - (startTime ?? 0)) > 1 || Math.abs(dz.endValue - (endTime ?? 0)) > 1) {
+        setTimeRange(dz.startValue, dz.endValue);
+      }
+    }
+  }, [linked, chartInstance, startTime, endTime, setTimeRange]);
 
-  const series = resolvedSeries;
+  const uniqueUnits = Array.from(new Set(allSeries.map(s => s.unit).filter(Boolean)));
+  const yAxes = uniqueUnits.length > 0
+    ? uniqueUnits.map((unit, i) => ({
+      type: "value" as const, name: unit, position: i === 0 ? "left" : "right",
+      nameTextStyle: { color: "#71717a", fontSize: 9 },
+      axisLabel: { color: "#71717a", fontSize: 10 },
+      axisLine: { lineStyle: { color: "#27272a" } },
+      splitLine: { lineStyle: { color: i === 0 ? "#27272a" : "transparent", type: "dashed" } },
+    }))
+    : [{ type: "value" as const, axisLabel: { color: "#71717a", fontSize: 10 }, axisLine: { lineStyle: { color: "#27272a" } }, splitLine: { lineStyle: { color: "#27272a", type: "dashed" } } }];
 
-  // ── Absolute scale calculation (for zoom out headroom) ─────────────────────
-  const absMin = timeRangeQuery.data?.startTime;
-  const absMax = timeRangeQuery.data?.endTime;
-  const absRange = (absMax ?? 0) - (absMin ?? 0);
-  // Add 2% padding so user can zoom out slightly beyond the data
-  const bufferedMin = absMin ? absMin - absRange * 0.02 : (startTime ?? 0);
-  const bufferedMax = absMax ? absMax + absRange * 0.02 : (endTime ?? 0);
+  const rangeMs = (endTime ?? 0) - (startTime ?? 0);
+  const echartsSeries = allSeries.flatMap((s: any) => {
+    const color = colorMap[s.globalId] || "#ccc";
+    const yAxisIndex = s.unit ? Math.max(0, uniqueUnits.indexOf(s.unit)) : 0;
 
-  // Collect unique units for dual y-axes
-  const unitAxes: string[] = [];
-  series.forEach((s) => {
-    if (s.unit && !unitAxes.includes(s.unit)) unitAxes.push(s.unit);
-  });
-
-  const yAxes = unitAxes.length > 0
-    ? unitAxes.map((unit, i) => ({
-        type: "value" as const,
-        name: unit,
-        position: i === 0 ? "left" : "right",
-        nameTextStyle: { color: "#71717a", fontSize: 9 },
-        axisLabel: { color: "#71717a", fontSize: 10 },
-        axisLine: { lineStyle: { color: "#27272a" } },
-        splitLine: {
-          lineStyle: { color: i === 0 ? "#27272a" : "transparent", type: "dashed" },
-        },
-      }))
-    : [
-        {
-          type: "value" as const,
-          axisLabel: { color: "#71717a", fontSize: 10 },
-          axisLine: { lineStyle: { color: "#27272a" } },
-          splitLine: { lineStyle: { color: "#27272a", type: "dashed" } },
-        },
-      ];
-
-  const echartsSeries = series.flatMap((s: any) => {
-    const color = colorMap[s.channelId] || "#ccc";
-    const displayName = labelMap?.[s.channelId] ?? s.channelName;
-    const yAxisIndex = s.unit ? Math.max(0, unitAxes.indexOf(s.unit)) : 0;
-
-    // Time Mode
     if (chartMode === "time") {
       return [
         {
-          name: `${displayName} range`,
-          type: "line",
-          data: s.points.map((p: any) => [p.t, p.min, p.max]),
-          lineStyle: { opacity: 0, width: 0 },
-          areaStyle: { opacity: 0.12, color },
-          itemStyle: { opacity: 0 },
-          yAxisIndex,
-          tooltip: { show: false },
-          silent: true,
-          showSymbol: false,
-          z: 1,
+          name: `${s.displayName} range`, type: "line", data: s.points.map((p: any) => [p.t, p.min, p.max]),
+          lineStyle: { opacity: 0, width: 0 }, areaStyle: { opacity: 0.12, color },
+          itemStyle: { opacity: 0 }, yAxisIndex, tooltip: { show: false }, silent: true, showSymbol: false, z: 1,
         },
         {
-          name: displayName,
-          type: "line",
-          data: s.points.map((p: any) => [p.t, p.avg]),
-          lineStyle: { color, width: 1.5 },
-          itemStyle: { color },
-          showSymbol: false,
-          yAxisIndex,
-          z: 2,
-        },
+          name: s.displayName, type: "line", data: s.points.map((p: any) => [p.t, p.avg]),
+          lineStyle: { color, width: 1.5 }, itemStyle: { color }, showSymbol: false, yAxisIndex, z: 2,
+        }
       ];
-    }
-    
-    // Frequency Mode
-    if (s.points.length > 2) {
-       // Estimate delta t
-       const dtMs = Math.max(1, s.points[1].t - s.points[0].t);
-       const freqs = computeFFT(s.points.map((p: any) => p.avg), dtMs);
-       const fftData = freqs.freq.map((f, i) => [f, freqs.mag[i]]);
-       return [
-         {
-           name: displayName + " (FFT)",
-           type: "line",
-           data: fftData,
-           lineStyle: { color, width: 1.5 },
-           itemStyle: { color },
-           showSymbol: false,
-           yAxisIndex,
-           z: 2,
-         }
-       ]
+    } else if (s.points.length > 2) {
+      const dtMs = Math.max(1, s.points[1].t - s.points[0].t);
+      const f = computeFFT(s.points.map((p: any) => p.avg), dtMs);
+      return [{
+        name: s.displayName + " (FFT)", type: "line", data: f.freq.map((freq, i) => [freq, f.mag[i]]),
+        lineStyle: { color, width: 1.5 }, itemStyle: { color }, showSymbol: false, yAxisIndex, z: 2,
+      }];
     }
     return [];
   });
@@ -412,205 +337,39 @@ export function TelemetryChart({
   const chartOption = {
     animation: false,
     backgroundColor: "transparent",
-
-    tooltip: {
-      trigger: "axis",
-      axisPointer: {
-        type: "cross",
-        label: {
-          backgroundColor: "#1c1b1b",
-          color: "#e4e4e7",
-          fontSize: 10,
-        },
-      },
-      backgroundColor: "#1c1b1b",
-      borderColor: "#27272a",
-      textStyle: { color: "#e4e4e7", fontSize: 11 },
-      // Show values for all series in the tooltip
-      confine: true,
-    },
-
-    axisPointer: {
-      link: { xAxisIndex: "all" },
-      show: true,
-      type: "cross",
-      snap: true,
-      lineStyle: {
-        color: "#f97316",
-        width: 1,
-        type: "dashed",
-      },
-      crossStyle: {
-        color: "#f97316",
-        width: 1,
-        type: "dashed",
-      },
-      label: {
-        show: true,
-        backgroundColor: "#27272a",
-        color: "#f97316",
-        fontSize: 10,
-      },
-    },
-
-    legend: {
-      type: "scroll",
-      bottom: 40,
-      textStyle: { color: "#71717a", fontSize: 10 },
-      // Only show avg series in legend, not bands
-      data: series.map((s: any) => labelMap?.[s.channelId] ?? s.channelName),
-    },
-
-    grid: { left: 60, right: unitAxes.length > 1 ? 60 : 12, top: 10, bottom: 80 },
-
+    tooltip: { trigger: "axis", axisPointer: { type: "cross" }, backgroundColor: "#1c1b1b", borderColor: "#27272a", textStyle: { color: "#e4e4e7", fontSize: 11 }, confine: true },
+    legend: { type: "scroll", bottom: 40, textStyle: { color: "#71717a", fontSize: 10 }, data: allSeries.map(s => s.displayName) },
+    grid: { left: 60, right: uniqueUnits.length > 1 ? 60 : 12, top: 10, bottom: 80 },
     xAxis: chartMode === "time" ? {
-      type: "time",
-      min: bufferedMin,
-      max: bufferedMax,
-      axisLine: { lineStyle: { color: "#27272a" } },
-      axisLabel: {
-        color: "#71717a",
-        fontSize: 10,
-        formatter: autoTimeFormatter(rangeMs),
-      },
-      splitLine: { show: false },
-    } : {
-      type: "value",
-      name: "Hz",
-      axisLine: { lineStyle: { color: "#27272a" } },
-      axisLabel: { color: "#71717a", fontSize: 10 },
-      splitLine: { show: false },
-    },
-
+      type: "time", axisLine: { lineStyle: { color: "#27272a" } }, splitLine: { show: false },
+      axisLabel: { color: "#71717a", fontSize: 10, formatter: autoTimeFormatter(rangeMs) },
+    } : { type: "value", name: "Hz", axisLine: { lineStyle: { color: "#27272a" } }, axisLabel: { color: "#71717a", fontSize: 10 }, splitLine: { show: false } },
     yAxis: yAxes,
-
-    dataZoom: chartMode === "time" ? [
-      {
-        type: "inside",
-        filterMode: "none",
-        startValue: startTime ?? undefined,
-        endValue: endTime ?? undefined,
-        zoomOnMouseWheel: true,
-        moveOnMouseWheel: false,
-        preventDefaultMouseMove: false,
-      },
-      {
-        type: "slider",
-        filterMode: "none",
-        startValue: startTime ?? undefined,
-        endValue: endTime ?? undefined,
-        bottom: 10,
-        height: 24,
-        borderColor: "#27272a",
-        backgroundColor: "#131313",
-        dataBackground: { lineStyle: { color: "#27272a" }, areaStyle: { color: "#1c1b1b" } },
-        handleStyle: { color: "#f97316" },
-        textStyle: { color: "#71717a", fontSize: 9 },
-      },
-    ] : [
-      {
-        type: "inside",
-      },
-      {
-        type: "slider",
-        bottom: 10,
-        height: 24,
-        borderColor: "#27272a",
-        filterMode: "none",
-        backgroundColor: "#131313",
-        handleStyle: { color: "#f97316" },
-        textStyle: { color: "#71717a", fontSize: 9 },
-      }
+    dataZoom: [
+      { type: "inside", filterMode: "none", startValue: startTime ?? undefined, endValue: endTime ?? undefined },
+      { type: "slider", filterMode: "none", startValue: startTime ?? undefined, endValue: endTime ?? undefined, bottom: 10, height: 24, borderColor: "#27272a", backgroundColor: "#131313", handleStyle: { color: "#f97316" }, textStyle: { color: "#71717a", fontSize: 9 } }
     ],
     series: echartsSeries,
   };
 
-  // ── Render ────────────────────────────────────────────────────────────────
-  const isLoading = dataQuery.isFetching || timeRangeQuery.isLoading;
-  const hasError  = dataQuery.isError;
-
   const { menu, open: openMenu, close: closeMenu } = useContextMenu();
 
-  const menuItems: ContextMenuItem[] = [
-    {
-      type: "item",
-      label: chartMode === "time" ? "Switch to Frequency Mode" : "Switch to Time Mode",
-      icon: <Activity className="h-3.5 w-3.5" />,
-      onClick: () => setChartMode(chartMode === "time" ? "frequency" : "time")
-    },
-    {
-      type: "item",
-      label: linked ? "Disable Zoom Sync" : "Enable Zoom Sync",
-      icon: linked ? <Link2Off className="h-3.5 w-3.5" /> : <Link2 className="h-3.5 w-3.5" />,
-      onClick: toggleLinked
-    },
-    { type: "separator" },
-    {
-      type: "item",
-      label: isFullscreen ? "Exit Fullscreen" : "Fullscreen Focus",
-      icon: isFullscreen ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />,
-      onClick: () => onToggleFullscreen?.()
-    }
-  ];
-
   return (
-    <div ref={containerRef} style={{ height: height ? `${height}px` : "100%" }} className="relative w-full overflow-hidden telemetry-chart-container">
-      {/* Top right overlays */}
-      <div className="absolute right-2 top-2 z-10 flex items-center gap-1">
-        <button
-          onClick={(e) => openMenu(e, menuItems)}
-          className="rounded p-1 text-muted-foreground hover:bg-[#1c1b1b] hover:text-[#f97316] transition-all bg-[#0e0e0e]/50 border border-transparent hover:border-[#27272a]"
-          title="Chart Options"
-        >
-          <MoreVertical className="h-4 w-4" />
-        </button>
+    <div ref={containerRef} style={{ height: height ? `${height}px` : "100%" }} className="relative w-full overflow-hidden">
+      <div className="absolute right-2 top-2 z-10">
+        <button onClick={(e) => openMenu(e, [
+          { type: "item", label: chartMode === "time" ? "FFT Mode" : "Time Mode", icon: <Activity className="h-4 w-4" />, onClick: () => setChartMode(chartMode === "time" ? "frequency" : "time") },
+          { type: "item", label: linked ? "Unsync Zoom" : "Sync Zoom", icon: linked ? <Link2Off className="h-4 w-4" /> : <Link2 className="h-4 w-4" />, onClick: toggleLinked },
+          { type: "item", label: isFullscreen ? "Exit Fullscreen" : "Fullscreen", icon: <Maximize2 className="h-4 w-4" />, onClick: onToggleFullscreen || (() => {}) }
+        ])} className="p-1 text-muted-foreground hover:text-[#f97316]"><MoreVertical className="h-4 w-4" /></button>
       </div>
-
-      {menu && (
-        <ContextMenu x={menu.x} y={menu.y} items={menu.items} onClose={closeMenu} />
-      )}
-
-      {/* Loading overlay */}
-      {isLoading && (
-        <div className="absolute inset-0 z-10 flex items-center justify-center bg-[#131313]/60 backdrop-blur-[1px]">
-          <Loader2 className="h-4 w-4 animate-spin text-[#f97316]/70" />
-        </div>
-      )}
-
-      {/* Bucket info badge */}
-      {dataQuery.data?.bucketInterval && (
-        <div className="absolute left-2 top-2 z-10 rounded bg-[#131313] px-1.5 py-0.5 font-mono text-[9px] text-muted-foreground/50">
-          Δ {dataQuery.data.bucketInterval}
-        </div>
-      )}
-
-      {hasError ? (
-        <div className="flex h-full items-center justify-center gap-2 text-destructive/50">
-          <AlertCircle className="h-4 w-4" />
-          <span className="font-mono text-xs">Query failed</span>
-        </div>
-      ) : series.length === 0 && !isLoading ? (
-        <div className="flex h-full items-center justify-center gap-2 text-muted-foreground/30">
-          <BarChart2 className="h-4 w-4" />
-          <span className="font-mono text-xs">No data in range</span>
-        </div>
+      {menu && <ContextMenu {...menu} onClose={closeMenu} />}
+      {!isInView.current || dataQueries.some(q => q.isLoading) ? (
+        <div className="flex h-full items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-[#f97316]/50" /></div>
+      ) : allSeries.length === 0 ? (
+        <div className="flex h-full items-center justify-center text-muted-foreground/30 font-mono text-xs">No data selected</div>
       ) : (
-        <ReactECharts
-          option={chartOption}
-          style={{ height: "100%", width: "100%" }}
-          opts={{ renderer: "canvas" }}
-          notMerge={true}
-          lazyUpdate={true}
-          onEvents={{
-            datazoom: handleDataZoom,
-          }}
-          onChartReady={(instance) => {
-            setChartInstance(instance);
-            // Add to the sync group for linked hover/crosshair
-            instance.group = "playground-sync";
-            echarts.connect("playground-sync");
-          }}
-        />
+        <ReactECharts option={chartOption} style={{ height: "100%" }} onEvents={{ datazoom: handleDataZoom }} onChartReady={inst => { inst.group = "playground-sync"; echarts.connect("playground-sync"); setChartInstance(inst); }} />
       )}
     </div>
   );

@@ -120,7 +120,7 @@ export const telemetryRouter = createTRPCRouter({
       // Fetch all column types for this hypertable to know what needs casting
       const colCheck = await pool.query(`
         SELECT column_name, data_type FROM information_schema.columns 
-        WHERE table_name = $1
+        WHERE LOWER(table_name) = LOWER($1)
       `, [hypertableName]);
       
       const colTypes = new Map(colCheck.rows.map(r => [r.column_name, r.data_type]));
@@ -246,7 +246,7 @@ export const telemetryRouter = createTRPCRouter({
       
       const colCheck = await pool.query(`
         SELECT data_type FROM information_schema.columns 
-        WHERE table_name = $1 AND column_name = 'time'
+        WHERE LOWER(table_name) = LOWER($1) AND column_name = 'time'
       `, [hypertableName]);
       const isBigInt = colCheck.rows[0]?.data_type === 'bigint';
 

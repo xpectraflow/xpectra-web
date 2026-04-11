@@ -1,14 +1,13 @@
 "use client";
 
-import { usePlayground, PlottedDataset } from "@/components/playground/PlaygroundContext";
+import { usePlayground, PlottedDataset, PlottedChannelGroup } from "@/components/playground/PlaygroundContext";
 import { SectionHeader } from "@/components/playground/SectionHeader";
-import { TelemetryChart, CHART_PALETTE } from "@/components/playground/TelemetryChart";
+import { TelemetryChart, CHART_PALETTE, getGlobalId } from "@/components/playground/TelemetryChart";
 import { FullscreenPanel } from "@/components/playground/FullscreenPanel";
 import { trpc } from "@/lib/trpc";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useRef, Suspense } from "react";
+import { useEffect, useRef, Suspense, useMemo, useState } from "react";
 import { FlaskConical, BarChart2, Cpu, Loader2, X, Database } from "lucide-react";
-import { useState } from "react";
 import Link from "next/link";
 
 // ─── Empty states ─────────────────────────────────────────────────────────────
@@ -52,154 +51,172 @@ function NoDatasetsPlottedState() {
   );
 }
 
-// ─── Plotted dataset block ────────────────────────────────────────────────────
+// ─── Plotted dataset block ──────────────────────────────────────────────────
 
 function PlottedDatasetBlock({ dataset }: { dataset: PlottedDataset }) {
   const { removePlot, virtualChannels } = usePlayground();
 
-  // Fetch channels so we know their IDs and can assign colors
-  const channelsQuery = trpc.channels.getChannels.useQuery({
-    experimentId: dataset.experimentId,
-    datasetId: dataset.datasetId,
-  });
+  // 1. Fetch channels for ALL groups in this block
+  const channelsQueries = trpc.useQueries((t) =>
+    dataset.groups.map((g) =>
+      t.channels.getChannels({
+        experimentId: g.experimentId,
+        datasetId: g.datasetId,
+      })
+    )
+  );
 
-  const rawChannels = channelsQuery.data ?? [];
-  const datasetVirtuals = virtualChannels.filter(vc => vc.datasetId === dataset.datasetId);
+  // 2. Consolidate all available channels across all datasets in this block
+  // We identify each uniquely as datasetId:channelId
+  const allConsolidated = useMemo(() => {
+    const list: any[] = [];
+    dataset.groups.forEach((g, idx) => {
+      const raw = channelsQueries[idx].data ?? [];
+      const vcs = virtualChannels.filter(vc => vc.datasetId === g.datasetId);
+      
+      const combined = [
+        ...raw.map(c => ({ 
+          ...c, 
+          datasetId: g.datasetId, 
+          globalId: getGlobalId(g.datasetId, c.id), 
+          datasetName: g.datasetName 
+        })),
+        ...vcs.map(vc => ({
+          id: vc.id,
+          globalId: getGlobalId(g.datasetId, vc.id),
+          name: vc.name,
+          datasetId: vc.datasetId,
+          datasetName: g.datasetName,
+          sensorName: "Virtual",
+          unit: "Derived",
+          dataType: "float8",
+          hypertableColName: "virtual"
+        }))
+      ];
+      list.push(...combined);
+    });
+    return list;
+  }, [dataset.groups, channelsQueries, virtualChannels]);
 
-  // Merge physical and virtual lists
-  const allAvailableChannels = [
-    ...rawChannels,
-    ...datasetVirtuals.map(vc => ({
-      id: vc.id,
-      name: vc.name,
-      sensorName: "Virtual",
-      unit: "Derived",
-      dataType: "float8",
-      hypertableColName: "virtual"
-    }))
-  ];
+  // 3. Filter down to the specific channels requested in each group
+  const channels = useMemo(() => {
+    return allConsolidated.filter(ch => {
+      const g = dataset.groups.find(group => group.datasetId === ch.datasetId);
+      if (!g) return false;
+      // If no specific channels requested in the group, include all from that dataset
+      if (!g.channelIds || g.channelIds.length === 0) return true;
+      return g.channelIds.includes(ch.id);
+    });
+  }, [allConsolidated, dataset.groups]);
 
-  // Filter channels if a specific subset was requested
-  const channels = dataset.channelIds
-    ? allAvailableChannels.filter(ch => dataset.channelIds?.includes(ch.id))
-    : allAvailableChannels;
+  // 4. Assign global colors (using globalId)
+  const colorMap = useMemo(() => {
+    const cm: Record<string, string> = {};
+    allConsolidated.forEach((ch, i) => {
+      cm[ch.globalId] = CHART_PALETTE[i % CHART_PALETTE.length];
+    });
+    return cm;
+  }, [allConsolidated]);
 
-  // Assign a stable color per channel from the palette
-  const colorMap: Record<string, string> = {};
-  allAvailableChannels.forEach((ch, i) => {
-    colorMap[ch.id] = CHART_PALETTE[i % CHART_PALETTE.length];
-  });
+  // 5. Labels with Dataset context if there are collisions across datasets
+  const labelMap = useMemo(() => {
+    const lm: Record<string, string> = {};
+    const nameCounts = new Map<string, number>();
+    channels.forEach(ch => nameCounts.set(ch.name, (nameCounts.get(ch.name) || 0) + 1));
+    
+    const multiDataset = dataset.groups.length > 1;
+
+    channels.forEach(ch => {
+      const isCollision = (nameCounts.get(ch.name) || 0) > 1;
+      let label = ch.name;
+      if (isCollision && ch.sensorName && ch.sensorName !== "Virtual") {
+        label = `${ch.sensorName}.${ch.name}`;
+      }
+      // If we are comparing datasets, always prefix with dataset name to be clear
+      if (multiDataset) {
+        label = `[${ch.datasetName}] ${label}`;
+      }
+      lm[ch.globalId] = label;
+    });
+    return lm;
+  }, [channels, dataset.groups.length]);
 
   const isOverlay = dataset.layout === "overlay";
-
-  // ── Hierarchical Label Disambiguation ──────────────────────────────────────
-  // Detect if any channel names collide (multiple sensors having same named channels).
-  // Prefix with sensor name only on collision.
-  const nameCounts = new Map<string, number>();
-  channels.forEach((ch) => {
-    nameCounts.set(ch.name, (nameCounts.get(ch.name) || 0) + 1);
-  });
-
-  const labelMap: Record<string, string> = {};
-  channels.forEach((ch) => {
-    const isCollision = (nameCounts.get(ch.name) || 0) > 1;
-    labelMap[ch.id] = isCollision && ch.sensorName && ch.sensorName !== "Virtual"
-      ? `${ch.sensorName}.${ch.name}`
-      : ch.name;
-  });
+  const isLoading = channelsQueries.some(q => q.isLoading);
+  const displayTitle = dataset.groups.length > 1 
+    ? `Comparison: ${dataset.groups.map(g => g.datasetName).join(" vs ")}`
+    : dataset.groups[0]?.datasetName ?? "Plot";
 
   return (
     <div className="mb-8 rounded-lg border border-[#27272a] bg-[#0e0e0e] p-6 shadow-sm">
-      {/* Dataset header */}
       <div className="mb-4 flex items-center gap-3 border-b border-[#27272a] pb-4">
         <Database className="h-4 w-4 shrink-0 text-[#f97316]" />
         <div className="flex-1">
-          <h2 className="font-['Manrope',sans-serif] text-base font-semibold text-foreground leading-none">
-            {dataset.datasetName}
+          <h2 className="font-['Manrope',sans-serif] text-base font-semibold text-foreground leading-none lowercase">
+            {displayTitle}
           </h2>
           <p className="mt-1 font-mono text-[10px] uppercase tracking-widest text-muted-foreground/50">
-            {channels.length} {dataset.channelIds ? "selected" : "total"} channels •{" "}
-            <span className={isOverlay ? "text-[#f97316]/70" : "text-sky-400/70"}>
-              {dataset.layout.toUpperCase()} MODE
-            </span>
+            {channels.length} channels • <span className={isOverlay ? "text-[#f97316]/70" : "text-sky-400/70"}>{dataset.layout}</span>
           </p>
         </div>
         <button
-          type="button"
           onClick={() => removePlot(dataset.id)}
           className="flex items-center gap-1.5 rounded bg-[#1c1b1b] px-2.5 py-1.5 font-mono text-[11px] text-muted-foreground ring-1 ring-[#27272a] transition hover:bg-destructive/10 hover:text-destructive hover:ring-destructive/20"
-          title="Remove plot from canvas"
         >
-          <X className="h-3.5 w-3.5" />
-          Remove
+          <X className="h-3.5 w-3.5" /> Remove
         </button>
       </div>
 
-      {channelsQuery.isLoading ? (
-        <div className="flex items-center justify-center gap-2 py-12 text-muted-foreground">
-          <Loader2 className="h-5 w-5 animate-spin text-[#f97316]/50" />
-          <span className="text-sm font-medium">Synchronizing telemetry data…</span>
+      {isLoading ? (
+        <div className="flex items-center justify-center py-12 text-muted-foreground">
+          <Loader2 className="h-5 w-5 animate-spin text-[#f97316]/50 mr-2" />
+          <span className="text-sm font-medium">Synchronizing telemetry metadata…</span>
         </div>
       ) : channels.length === 0 ? (
-        <p className="py-12 text-center font-mono text-xs text-muted-foreground/40">
-          {dataset.channelIds ? "Requested channels not available" : "No telemetry channels found"}
-        </p>
+        <p className="py-12 text-center font-mono text-xs text-muted-foreground/40">No channels selected</p>
       ) : isOverlay ? (
-        /* OVERLAY MODE: All channels in one chart */
         <FullscreenChartWrapper
-          experimentId={dataset.experimentId}
-          datasetId={dataset.datasetId}
-          channelIds={channels.map((c) => c.id)}
+          groups={dataset.groups}
           colorMap={colorMap}
           labelMap={labelMap}
           height={600}
         >
           <div className="mb-3 flex flex-wrap gap-3">
             {channels.map((ch) => (
-              <div key={ch.id} className="flex items-center gap-2">
-                <span
-                  className="h-2 w-2 rounded-full shrink-0"
-                  style={{ background: colorMap[ch.id] }}
-                />
-                <span className="text-[11px] font-medium text-foreground">{labelMap[ch.id]}</span>
-                {ch.unit && (
-                  <span className="font-mono text-[9px] text-muted-foreground/40 italic">
-                    [{ch.unit}]
-                  </span>
-                )}
+              <div key={ch.globalId} className="flex items-center gap-2">
+                <span className="h-2 w-2 rounded-full shrink-0" style={{ background: colorMap[ch.globalId] }} />
+                <span className="text-[11px] font-medium text-foreground">{labelMap[ch.globalId]}</span>
+                {ch.unit && <span className="font-mono text-[9px] text-muted-foreground/40 italic">[{ch.unit}]</span>}
               </div>
             ))}
           </div>
         </FullscreenChartWrapper>
       ) : (
-        /* SEPARATE MODE: Grid of individual charts */
-        <div className="grid gap-4 md:grid-cols-1 lg:grid-cols-2 xl:grid-cols-2">
-          {channels.map((ch) => (
-            <FullscreenChartWrapper
-              key={ch.id}
-              experimentId={dataset.experimentId}
-              datasetId={dataset.datasetId}
-              channelIds={[ch.id]}
-              colorMap={colorMap}
-              labelMap={labelMap}
-              height={350}
-            >
-              <div className="mb-2 flex items-center gap-2 px-2 pt-1">
-                <span
-                  className="h-3 w-3 rounded-sm shrink-0"
-                  style={{ background: colorMap[ch.id] }}
-                />
-                <span className="font-['Manrope',sans-serif] text-sm font-bold text-foreground truncate">
-                  {labelMap[ch.id]}
-                </span>
-                {ch.unit && (
-                  <span className="ml-auto rounded bg-[#0e0e0e] px-1.5 py-0.5 font-mono text-[9px] text-muted-foreground/60 border border-[#27272a]">
-                    {ch.unit}
-                  </span>
-                )}
-              </div>
-            </FullscreenChartWrapper>
-          ))}
+        <div className="grid gap-4 md:grid-cols-1 lg:grid-cols-2">
+          {channels.map((ch) => {
+            // Filter groups to just this specific channel's dataset/id
+            const specificGroup = [{
+              datasetId: ch.datasetId,
+              datasetName: ch.datasetName,
+              experimentId: dataset.groups.find(g => g.datasetId === ch.datasetId)!.experimentId,
+              channelIds: [ch.id]
+            }];
+            return (
+              <FullscreenChartWrapper
+                key={ch.globalId}
+                groups={specificGroup}
+                colorMap={colorMap}
+                labelMap={labelMap}
+                height={350}
+              >
+                <div className="mb-2 flex items-center gap-2 px-2 pt-1">
+                  <span className="h-3 w-3 rounded-sm shrink-0" style={{ background: colorMap[ch.globalId] }} />
+                  <span className="font-['Manrope',sans-serif] text-sm font-bold text-foreground truncate">{labelMap[ch.globalId]}</span>
+                  {ch.unit && <span className="ml-auto rounded bg-[#0e0e0e] px-1.5 py-0.5 font-mono text-[9px] text-muted-foreground/60 border border-[#27272a]">{ch.unit}</span>}
+                </div>
+              </FullscreenChartWrapper>
+            );
+          })}
         </div>
       )}
     </div>
@@ -211,17 +228,13 @@ function PlottedDatasetBlock({ dataset }: { dataset: PlottedDataset }) {
  */
 function FullscreenChartWrapper({
   children,
-  experimentId,
-  datasetId,
-  channelIds,
+  groups,
   colorMap,
   labelMap,
   height,
 }: {
   children?: React.ReactNode;
-  experimentId: string;
-  datasetId: string;
-  channelIds: string[];
+  groups: PlottedChannelGroup[];
   colorMap: Record<string, string>;
   labelMap: Record<string, string>;
   height: number;
@@ -239,9 +252,7 @@ function FullscreenChartWrapper({
       <div className={`bg-[#121212] p-4 transition hover:ring-[#f97316]/20 flex flex-col telemetry-card ${isFullscreen ? "h-full" : ""}`}>
         {children}
         <TelemetryChart
-          experimentId={experimentId}
-          datasetId={datasetId}
-          channelIds={channelIds}
+          groups={groups}
           colorMap={colorMap}
           labelMap={labelMap}
           height={isFullscreen ? undefined : height}
@@ -252,6 +263,7 @@ function FullscreenChartWrapper({
     </FullscreenPanel>
   );
 }
+
 
 // ─── Top bar ──────────────────────────────────────────────────────────────────
 
@@ -307,12 +319,17 @@ function PlaygroundContent() {
 
   useEffect(() => {
     if (autoDsData && urlExpId && urlDsId && !hasAutoPlotted.current) {
-      const isAlreadyPlotted = plottedDatasets.some((ds) => ds.datasetId === urlDsId);
+      const isAlreadyPlotted = plottedDatasets.some((ds) => 
+        ds.groups.some(g => g.datasetId === urlDsId)
+      );
       if (!isAlreadyPlotted) {
         addPlot({
-          datasetId: urlDsId,
-          datasetName: autoDsData.name,
-          experimentId: urlExpId,
+          groups: [{
+            datasetId: urlDsId,
+            datasetName: autoDsData.name,
+            experimentId: urlExpId,
+            channelIds: [], // Plot all if empty (handled by PlottedDatasetBlock)
+          }],
           layout: "separate",
         });
       }

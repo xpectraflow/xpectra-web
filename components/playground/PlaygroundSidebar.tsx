@@ -6,7 +6,7 @@ import Image from "next/image";
 import { useSession, signOut } from "next-auth/react";
 import { trpc } from "@/lib/trpc";
 import { useContextMenu, ContextMenu, ContextMenuItem } from "@/components/playground/ContextMenu";
-import { usePlayground, VirtualChannel } from "@/components/playground/PlaygroundContext";
+import { usePlayground, VirtualChannel, PlottedChannelGroup } from "@/components/playground/PlaygroundContext";
 import {
   FlaskConical,
   ChevronDown,
@@ -48,7 +48,7 @@ function DatasetChannels({
   datasetId: string;
   datasetName: string;
 }) {
-  const { addPlot, virtualChannels, addVirtualChannel, removeVirtualChannel } = usePlayground();
+  const { addPlot, addToPlot, plottedDatasets, virtualChannels, addVirtualChannel, removeVirtualChannel } = usePlayground();
   const { menu, open: openMenu, close: closeMenu } = useContextMenu();
 
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -108,44 +108,81 @@ function DatasetChannels({
       setLastClickedId(id);
     }
 
-    const items: ContextMenuItem[] = [
-      {
-        type: "item",
-        label: `Plot in separate panels (${currentSelection.length})`,
-        icon: <BarChart2 className="h-3.5 w-3.5" />,
-        onClick: () => {
-          addPlot({
-            datasetId,
-            datasetName,
-            experimentId,
-            channelIds: currentSelection,
-            layout: "separate",
-          });
-          setSelectedIds([]);
-        },
-      },
-      {
-        type: "item",
-        label: `Plot in single panel (Overlaid)`,
-        icon: <BarChart2 className="h-3.5 w-3.5 text-[#f97316]" />,
-        onClick: () => {
-          addPlot({
-            datasetId,
-            datasetName,
-            experimentId,
-            channelIds: currentSelection,
-            layout: "overlay",
-          });
-          setSelectedIds([]);
-        },
-      },
-      { type: "separator" },
-      {
-        type: "item",
-        label: "Clear selection",
-        onClick: () => setSelectedIds([]),
-      },
-    ];
+    const group: PlottedChannelGroup = {
+      datasetId,
+      datasetName,
+      experimentId,
+      channelIds: currentSelection,
+    };
+
+    const items: ContextMenuItem[] = currentSelection.length > 1
+      ? [
+          {
+            type: "item",
+            label: `Plot in separate panels`,
+            icon: <BarChart2 className="h-3.5 w-3.5" />,
+            onClick: () => {
+              addPlot({
+                groups: [group],
+                layout: "separate",
+              });
+              setSelectedIds([]);
+            },
+          },
+          {
+            type: "item",
+            label: `Plot in single panel (Overlay)`,
+            icon: <BarChart2 className="h-3.5 w-3.5 text-[#f97316]" />,
+            onClick: () => {
+              addPlot({
+                groups: [group],
+                layout: "overlay",
+              });
+              setSelectedIds([]);
+            },
+          },
+        ]
+      : [
+          {
+            type: "item",
+            label: `Plot channel`,
+            icon: <BarChart2 className="h-3.5 w-3.5" />,
+            onClick: () => {
+              addPlot({
+                groups: [group],
+                layout: "overlay",
+              });
+              setSelectedIds([]);
+            },
+          },
+        ];
+
+    // Submenu-like behavior: Add to existing plots
+    if (plottedDatasets.length > 0) {
+      items.push({ type: "separator" });
+      plottedDatasets.forEach((plot) => {
+        const title = plot.groups.length > 1
+          ? `Comparison (${plot.groups.length} datasets)`
+          : plot.groups[0]?.datasetName ?? "Plot";
+        
+        items.push({
+          type: "item",
+          label: `Add to: ${title}`,
+          icon: <Plus className="h-3.5 w-3.5 text-[#00a2f4]" />,
+          onClick: () => {
+            addToPlot(plot.id, group);
+            setSelectedIds([]);
+          },
+        });
+      });
+    }
+
+    items.push({ type: "separator" });
+    items.push({
+      type: "item",
+      label: "Clear selection",
+      onClick: () => setSelectedIds([]),
+    });
 
     openMenu(e, items);
   };
@@ -521,9 +558,12 @@ function DatasetRow({
       icon: <BarChart2 className="h-3.5 w-3.5" />,
       onClick: () =>
         addPlot({
-          datasetId: dataset.id,
-          datasetName: dataset.name,
-          experimentId,
+          groups: [{
+            datasetId: dataset.id,
+            datasetName: dataset.name,
+            experimentId,
+            channelIds: [],
+          }],
           layout: "separate",
         }),
     },
@@ -533,9 +573,12 @@ function DatasetRow({
       icon: <BarChart2 className="h-3.5 w-3.5 text-[#f97316]" />,
       onClick: () =>
         addPlot({
-          datasetId: dataset.id,
-          datasetName: dataset.name,
-          experimentId,
+          groups: [{
+            datasetId: dataset.id,
+            datasetName: dataset.name,
+            experimentId,
+            channelIds: [],
+          }],
           layout: "overlay",
         }),
     },
