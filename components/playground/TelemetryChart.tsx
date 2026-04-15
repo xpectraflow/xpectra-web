@@ -4,10 +4,10 @@ import { useEffect, useRef, useCallback, useState, useMemo } from "react";
 import ReactECharts from "echarts-for-react";
 import type { EChartsInstance } from "echarts-for-react";
 import * as echarts from "echarts";
-import { Loader2, AlertCircle, BarChart2, Link2, Link2Off, Activity, MoreVertical, Maximize2, Minimize2 } from "lucide-react";
+import { Loader2, AlertCircle, BarChart2, Link2, Link2Off, Activity, MoreVertical, Maximize2, Minimize2, ZoomIn, ZoomOut } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { usePlaygroundTimeStore } from "@/stores/playgroundTime";
-import { usePlayground, PlottedChannelGroup } from "@/components/playground/PlaygroundContext";
+import { usePlayground, PlottedChannelGroup, VirtualChannel } from "@/components/playground/PlaygroundContext";
 import { useContextMenu, ContextMenuItem, ContextMenu } from "@/components/playground/ContextMenu";
 
 // ─── Naive Radix-2 FFT ────────────────────────────────────────────────────────
@@ -151,25 +151,62 @@ export function TelemetryChart({
       const allChannels = metaQueries[idx].data ?? [];
       const isPlotAll = !g.channelIds || g.channelIds.length === 0;
       
-      const plottingVirtuals = virtualChannels.filter(vc => vc.datasetId === g.datasetId && (isPlotAll || g.channelIds.includes(vc.id)));
+      const datasetVirtuals = virtualChannels.filter(vc => vc.datasetId === g.datasetId);
+      const plottingVirtualIds = new Set(g.channelIds.filter(id => id.startsWith("vc_")));
       
-      // If plotting all, take all physical channels. Otherwise filter by specified IDs.
+      if (isPlotAll) {
+         datasetVirtuals.forEach(vc => plottingVirtualIds.add(vc.id));
+      }
+
+      const neededPhysicalIds = new Set<string>();
+      const resolvedVirtuals: VirtualChannel[] = [];
+      const visited = new Set<string>();
+      const resolving = new Set<string>();
+
+      const trace = (vcId: string) => {
+        if (visited.has(vcId)) return;
+        if (resolving.has(vcId)) {
+          console.warn("Circular dependency detected for VC:", vcId);
+          return;
+        }
+
+        resolving.add(vcId);
+        const vc = datasetVirtuals.find(v => v.id === vcId);
+        if (vc) {
+          const tokens = vc.expression.match(/[a-zA-Z0-9_\.]+/g) || [];
+          tokens.forEach(token => {
+            // Check if it's a physical channel
+            const physical = allChannels.find(c => c.name === token || `${c.sensorName}.${c.name}` === token);
+            if (physical) {
+              neededPhysicalIds.add(physical.id);
+            } else {
+              // Check if it's another virtual channel (by name)
+              const nestedVC = datasetVirtuals.find(v => v.name === token);
+              if (nestedVC) {
+                trace(nestedVC.id);
+              }
+            }
+          });
+          resolvedVirtuals.push(vc);
+        }
+        resolving.delete(vcId);
+        visited.add(vcId);
+      };
+
+      // Trace each explicitly plotted VC
+      plottingVirtualIds.forEach(id => trace(id));
+
+      // Physical channels to plot
       const plottingPhysicals = isPlotAll 
         ? allChannels.map(c => c.id)
         : g.channelIds.filter(id => !id.startsWith("vc_"));
-
-      const neededPhysicalIds = new Set(plottingPhysicals);
-      plottingVirtuals.forEach(vc => {
-        const tokens = vc.expression.match(/[a-zA-Z0-9_\.]+/g) || [];
-        tokens.forEach(token => {
-          const matched = allChannels.find(c => c.name === token || `${c.sensorName}.${c.name}` === token);
-          if (matched) neededPhysicalIds.add(matched.id);
-        });
-      });
+      
+      plottingPhysicals.forEach(id => neededPhysicalIds.add(id));
 
       return {
         ...g,
-        plottingVirtuals,
+        plottingVirtuals: datasetVirtuals.filter(vc => plottingVirtualIds.has(vc.id)),
+        orderedVirtuals: resolvedVirtuals, // This is topologically sorted
         plottingPhysicals,
         neededPhysicalIds: Array.from(neededPhysicalIds),
         meta: allChannels,
@@ -239,49 +276,80 @@ export function TelemetryChart({
         });
       });
 
-      // Eval and add Virtual channels (scoped to this dataset's results)
-      rg.plottingVirtuals.forEach(vc => {
+      // Evaluate all needed virtual channels in topological order
+      const valMap = new Map<string, any>();
+      res.series.forEach((s: any) => {
+        valMap.set(s.channelName, s);
+        valMap.set(`${s.sensorName}.${s.channelName}`, s);
+      });
+
+      const samplesCount = res.series[0]?.points.length ?? 0;
+      
+      rg.orderedVirtuals.forEach(vc => {
         const tokens = vc.expression.match(/[a-zA-Z0-9_\.]+/g) || [];
-        const seriesMap = new Map();
-        res.series.forEach((s: any) => {
-          seriesMap.set(s.channelName, s);
-          seriesMap.set(`${s.sensorName}.${s.channelName}`, s);
-        });
-
-        const samplesCount = res.series[0]?.points.length ?? 0;
-        if (samplesCount === 0) return;
-
-        const virtualPoints = [];
-        for (let i = 0; i < samplesCount; i++) {
-          let expr = vc.expression;
-          tokens.forEach(t => {
-            const s = seriesMap.get(t);
-            const val = s?.points[i]?.avg ?? 0;
-            expr = expr.replace(new RegExp(`\\b${t}\\b`, "g"), val.toString());
-          });
-          try {
-            // eslint-disable-next-line no-eval
-            const result = eval(expr);
-            virtualPoints.push({
-              t: res.series[0].points[i].t,
-              avg: result, min: result, max: result
+        const virtualPoints: any[] = [];
+        
+        if (samplesCount > 0) {
+          for (let i = 0; i < samplesCount; i++) {
+            // Strip '@' and replace tokens
+            let expr = vc.expression.replace(/@/g, "");
+            tokens.forEach((t: string) => {
+              const s = valMap.get(t);
+              const val = s?.points[i]?.avg ?? 0;
+              // Replace tokens while respecting word boundaries
+              expr = expr.replace(new RegExp(`\\b${t}\\b`, "g"), val.toString());
             });
-          } catch {
-            virtualPoints.push({ t: res.series[0].points[i].t, avg: 0, min: 0, max: 0 });
+            
+            try {
+              // eslint-disable-next-line no-eval
+              const result = eval(expr);
+              virtualPoints.push({
+                t: res.series[0].points[i].t,
+                avg: result, min: result, max: result
+              });
+            } catch {
+              virtualPoints.push({ t: res.series[0].points[i].t, avg: 0, min: 0, max: 0 });
+            }
           }
         }
-        combined.push({
+
+        const vcSeries = {
           channelId: vc.id,
           channelName: vc.name,
           globalId: getGlobalId(rg.datasetId, vc.id),
-          points: virtualPoints.map(p => ({ ...p, t: p.t - baseTime })),
+          points: virtualPoints.map((p: any) => ({ ...p, t: p.t - baseTime })), // Normalize time
           unit: "Derived",
           displayName: labelMap?.[getGlobalId(rg.datasetId, vc.id)] ?? vc.name
-        });
+        };
+
+        // Add to map so other VCs can use it
+        valMap.set(vc.name, { ...vcSeries, points: virtualPoints }); // Keep unnormalized time for calculations
+        
+        // Add to return if it's one of the requested plot IDs
+        if (rg.plottingVirtuals.some(pv => pv.id === vc.id)) {
+          combined.push(vcSeries);
+        }
       });
     });
     return combined;
   }, [dataQueries, resolvedGroups, labelMap, timeRanges]);
+
+  // --- Debounced Time Sync ---
+  const debounceTimer = useRef<NodeJS.Timeout | null>(null);
+  
+  const debouncedSetTimeRange = useCallback((start: number, end: number) => {
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    debounceTimer.current = setTimeout(() => {
+      setTimeRange(start, end);
+    }, 500);
+  }, [setTimeRange]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    };
+  }, []);
 
   // ECharts Logic
   const handleDataZoom = useCallback(() => {
@@ -289,11 +357,35 @@ export function TelemetryChart({
     const option = chartInstance.getOption() as any;
     const dz = option.dataZoom?.[0];
     if (dz && typeof dz.startValue === "number" && typeof dz.endValue === "number") {
+      // Use debounced sync for a smoother experience during dragging
       if (Math.abs(dz.startValue - (startTime ?? 0)) > 1 || Math.abs(dz.endValue - (endTime ?? 0)) > 1) {
-        setTimeRange(dz.startValue, dz.endValue);
+        debouncedSetTimeRange(dz.startValue, dz.endValue);
       }
     }
-  }, [linked, chartInstance, startTime, endTime, setTimeRange]);
+  }, [linked, chartInstance, startTime, endTime, debouncedSetTimeRange]);
+
+  const handleManualZoom = (direction: "in" | "out") => {
+    if (!startTime || !endTime) return;
+    const center = (startTime + endTime) / 2;
+    const currentRange = endTime - startTime;
+    const factor = direction === "in" ? 0.6 : 1.6;
+    const newHalfRange = (currentRange * factor) / 2;
+    
+    const newStart = center - newHalfRange;
+    const newEnd = center + newHalfRange;
+    
+    // Update local chart instance immediately for snappy feedback
+    if (chartInstance) {
+      chartInstance.dispatchAction({
+        type: "dataZoom",
+        startValue: newStart,
+        endValue: newEnd
+      });
+    }
+
+    // Sync to store after debounce
+    debouncedSetTimeRange(newStart, newEnd);
+  };
 
   const uniqueUnits = Array.from(new Set(allSeries.map(s => s.unit).filter(Boolean)));
   const yAxes = uniqueUnits.length > 0
@@ -356,12 +448,34 @@ export function TelemetryChart({
 
   return (
     <div ref={containerRef} style={{ height: height ? `${height}px` : "100%" }} className="relative w-full overflow-hidden">
-      <div className="absolute right-2 top-2 z-10">
-        <button onClick={(e) => openMenu(e, [
-          { type: "item", label: chartMode === "time" ? "FFT Mode" : "Time Mode", icon: <Activity className="h-4 w-4" />, onClick: () => setChartMode(chartMode === "time" ? "frequency" : "time") },
-          { type: "item", label: linked ? "Unsync Zoom" : "Sync Zoom", icon: linked ? <Link2Off className="h-4 w-4" /> : <Link2 className="h-4 w-4" />, onClick: toggleLinked },
-          { type: "item", label: isFullscreen ? "Exit Fullscreen" : "Fullscreen", icon: <Maximize2 className="h-4 w-4" />, onClick: onToggleFullscreen || (() => {}) }
-        ])} className="p-1 text-muted-foreground hover:text-[#f97316]"><MoreVertical className="h-4 w-4" /></button>
+      <div className="absolute right-2 top-2 z-10 flex items-center gap-0.5 bg-[#121212]/80 backdrop-blur-md rounded-lg border border-[#27272a] p-0.5 shadow-xl">
+        <button 
+          onClick={() => handleManualZoom("in")} 
+          title="Zoom In"
+          className="p-1.5 text-muted-foreground hover:text-amber-500 hover:bg-[#1c1b1b] rounded-md transition-all active:scale-95"
+        >
+          <ZoomIn className="h-4 w-4" />
+        </button>
+        <button 
+          onClick={() => handleManualZoom("out")} 
+          title="Zoom Out"
+          className="p-1.5 text-muted-foreground hover:text-amber-500 hover:bg-[#1c1b1b] rounded-md transition-all active:scale-95"
+        >
+          <ZoomOut className="h-4 w-4" />
+        </button>
+        
+        <div className="w-[1px] h-4 bg-[#27272a] mx-0.5" />
+
+        <button 
+          onClick={(e) => openMenu(e, [
+            { type: "item", label: chartMode === "time" ? "FFT Mode" : "Time Mode", icon: <Activity className="h-4 w-4" />, onClick: () => setChartMode(chartMode === "time" ? "frequency" : "time") },
+            { type: "item", label: linked ? "Unsync Zoom" : "Sync Zoom", icon: linked ? <Link2Off className="h-4 w-4" /> : <Link2 className="h-4 w-4" />, onClick: toggleLinked },
+            { type: "item", label: isFullscreen ? "Exit Fullscreen" : "Fullscreen", icon: <Maximize2 className="h-4 w-4" />, onClick: onToggleFullscreen || (() => {}) }
+          ])} 
+          className="p-1.5 text-muted-foreground hover:text-amber-500 hover:bg-[#1c1b1b] rounded-md transition-all"
+        >
+          <MoreVertical className="h-4 w-4" />
+        </button>
       </div>
       {menu && <ContextMenu {...menu} onClose={closeMenu} />}
       {!isInView.current || dataQueries.some(q => q.isLoading) ? (

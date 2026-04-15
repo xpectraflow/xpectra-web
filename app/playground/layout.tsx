@@ -19,6 +19,10 @@ function PlaygroundShell({ children }: { children: ReactNode }) {
     ]);
   }, []);
 
+  const updateVirtualChannel = useCallback((vcId: string, updates: Partial<VirtualChannel>) => {
+    setVirtualChannels((prev) => prev.map(v => v.id === vcId ? { ...v, ...updates } : v));
+  }, []);
+
   const removeVirtualChannel = useCallback((vcId: string) => {
     setVirtualChannels((prev) => prev.filter((v) => v.id !== vcId));
   }, []);
@@ -78,6 +82,7 @@ function PlaygroundShell({ children }: { children: ReactNode }) {
         removePlot,
         virtualChannels,
         addVirtualChannel,
+        updateVirtualChannel,
         removeVirtualChannel,
       }}
     >

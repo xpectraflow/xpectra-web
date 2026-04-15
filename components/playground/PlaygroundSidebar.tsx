@@ -48,19 +48,14 @@ function DatasetChannels({
   datasetId: string;
   datasetName: string;
 }) {
-  const { addPlot, addToPlot, plottedDatasets, virtualChannels, addVirtualChannel, removeVirtualChannel } = usePlayground();
+  const { addPlot, addToPlot, plottedDatasets, virtualChannels, addVirtualChannel, updateVirtualChannel, removeVirtualChannel } = usePlayground();
   const { menu, open: openMenu, close: closeMenu } = useContextMenu();
 
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [lastClickedId, setLastClickedId] = useState<string | null>(null);
   
   const [isAddingExpression, setIsAddingExpression] = useState(false);
-  const [expressionInput, setExpressionInput] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
-
-  const [suggestionIndex, setSuggestionIndex] = useState(0);
-  const [showSuggestions, setShowSuggestions] = useState(false);
-  const [suggestionFilter, setSuggestionFilter] = useState("");
 
   const channelsQuery = trpc.channels.getChannels.useQuery(
     { experimentId, datasetId },
@@ -184,83 +179,39 @@ function DatasetChannels({
       onClick: () => setSelectedIds([]),
     });
 
+    // VC Specific Actions
+    if (currentSelection.length === 1 && currentSelection[0].startsWith("vc_")) {
+      items.push({ type: "separator" });
+      items.push({
+        type: "item",
+        label: "Delete Virtual Channel",
+        variant: "destructive",
+        onClick: () => removeVirtualChannel(currentSelection[0]),
+      });
+    }
+
     openMenu(e, items);
   };
 
-  const handleAddExpression = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (showSuggestions) return; // Allow Enter to select suggestion first
-    if (!expressionInput.trim()) return;
-    
+  const handleAddExpression = (val: string) => {
     if (editingId) {
-      // Logic for editing is effectively adding with same name or updating
-      // But addVirtualChannel currently only adds. Let's update context later
-      // For now, we reuse the same name/expression logic
-      addVirtualChannel({
-        datasetId,
-        experimentId,
-        name: editingId.startsWith("vc_") ? (virtualChannels.find(v => v.id === editingId)?.name ?? "Expression") : expressionInput.trim(),
-        expression: expressionInput.trim()
-      });
-      // Filter out the old one if we want "Edit", but context doesn't support "Update"
-      // Wait, let's assume reuse of name is fine for now or I should add removeVirtualChannel
-      if (editingId.startsWith("vc_")) removeVirtualChannel(editingId);
+      updateVirtualChannel(editingId, { expression: val.trim() });
     } else {
       addVirtualChannel({
         datasetId,
         experimentId,
-        name: expressionInput.trim(),
-        expression: expressionInput.trim()
+        name: val.trim(),
+        expression: val.trim()
       });
     }
-
-    setExpressionInput("");
     setIsAddingExpression(false);
     setEditingId(null);
-    setShowSuggestions(false);
   };
 
   const handleStartEdit = (vc: VirtualChannel) => {
-    setExpressionInput(vc.expression);
     setEditingId(vc.id);
     setIsAddingExpression(true);
-    setShowSuggestions(false);
   };
-
-  const handleInputChange = (val: string) => {
-    setExpressionInput(val);
-    const lastAt = val.lastIndexOf("@");
-    if (lastAt !== -1) {
-      const query = val.slice(lastAt + 1);
-      if (!query.includes(" ")) {
-        setSuggestionFilter(query);
-        setShowSuggestions(true);
-        setSuggestionIndex(0);
-      } else {
-        setShowSuggestions(false);
-      }
-    } else {
-      setShowSuggestions(false);
-    }
-  };
-
-  const selectSuggestion = (ch: any) => {
-    const lastAt = expressionInput.lastIndexOf("@");
-    const prefix = expressionInput.slice(0, lastAt);
-    
-    // Determine the tag (matching the evaluation logic)
-    const nameCounts = new Map<string, number>();
-    channels.forEach((c) => nameCounts.set(c.name, (nameCounts.get(c.name) || 0) + 1));
-    const isCollision = (nameCounts.get(ch.name) || 0) > 1;
-    
-    // NORMALIZE: Replace non-alphanumerics with underscores
-    const rawTag = isCollision ? `${ch.sensorName}.${ch.name}` : ch.name;
-    const tag = rawTag.replace(/[^a-zA-Z0-9_\.]+/g, "_");
-    
-    setExpressionInput(prefix + tag + " ");
-    setShowSuggestions(false);
-  };
-
 
   if (channelsQuery.isLoading) {
     return (
@@ -279,8 +230,6 @@ function DatasetChannels({
   }
 
   // ── Hierarchical Label Disambiguation ──────────────────────────────────────
-  // Detect if any channel names collide within this dataset expansion.
-  // Prefix with sensor name only on collision.
   const nameCounts = new Map<string, number>();
   channels.forEach((ch) => {
     nameCounts.set(ch.name, (nameCounts.get(ch.name) || 0) + 1);
@@ -297,224 +246,72 @@ function DatasetChannels({
         ))}
       </datalist>
 
+      {/* Physical Channels */}
       {channels.map((ch) => {
         const isSelected = selectedIds.includes(ch.id);
-        const isCollision = (nameCounts.get(ch.name) || 0) > 1;
-        const displayName = isCollision && ch.sensorName
-          ? `${ch.sensorName}.${ch.name}`
-          : ch.name;
-
+        const nameCount = nameCounts.get(ch.name) || 0;
+        const displayName = (nameCount > 1 && ch.sensorName) ? `${ch.sensorName}.${ch.name}` : ch.name;
+        
         return (
-          <div
+          <ChannelRow
             key={ch.id}
+            id={ch.id}
+            isSelected={isSelected}
+            displayName={displayName}
+            unit={ch.unit}
             onClick={(e) => handleChannelClick(e, ch.id)}
             onContextMenu={(e) => handleContextMenu(e, ch.id)}
-            className={`flex cursor-pointer select-none items-center gap-2 rounded px-3 py-1 text-[11px] transition-all ${isSelected
-              ? "bg-[#f97316]/10 text-foreground ring-1 ring-inset ring-[#f97316]/30"
-              : "text-muted-foreground/70 hover:bg-[#1c1b1b] hover:text-muted-foreground"
-              }`}
-          >
-            <Hash
-              className={`h-2.5 w-2.5 shrink-0 ${isSelected ? "text-[#f97316]" : "text-muted-foreground/30"
-                }`}
-            />
-            <span className="flex-1 truncate" title={displayName}>
-              {displayName}
-            </span>
-            {ch.unit && (
-              <span className="font-mono text-[10px] opacity-40">{ch.unit}</span>
-            )}
-          </div>
+          />
         );
       })}
 
+      {/* Virtual Channels */}
       {datasetVirtualChannels.map((vc) => {
         const isSelected = selectedIds.includes(vc.id);
         const isEditing = editingId === vc.id;
 
-        const renderSuggestionsMenu = () => {
-          if (!showSuggestions) return null;
-          const suggestions = channels.filter(ch => {
-            const full = `${ch.sensorName}.${ch.name}`.toLowerCase();
-            const short = ch.name.toLowerCase();
-            const q = suggestionFilter.toLowerCase();
-            return full.includes(q) || short.includes(q);
-          }).slice(0, 8);
-
-          return (
-            <div className="absolute left-3 right-3 bottom-full mb-1 z-50 rounded-md border border-[#27272a] bg-[#1c1b1b] p-1 shadow-xl">
-              {suggestions.map((ch, idx) => {
-                const isCollision = (nameCounts.get(ch.name) || 0) > 1;
-                const tag = (isCollision ? `${ch.sensorName}.${ch.name}` : ch.name).replace(/[^a-zA-Z0-9_\.]+/g, "_");
-                return (
-                  <button
-                    key={ch.id}
-                    type="button"
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => selectSuggestion(ch)}
-                    className={`flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-[11px] transition-colors ${idx === suggestionIndex ? "bg-[#f97316]/20 text-foreground" : "text-muted-foreground hover:bg-[#121212]"}`}
-                  >
-                    <Hash className="h-2.5 w-2.5 text-muted-foreground/30" />
-                    <span className="flex-1 truncate">{tag}</span>
-                    {ch.sensorName && <span className="opacity-30 text-[9px] truncate">{ch.sensorName}</span>}
-                  </button>
-                );
-              })}
-            </div>
-          );
-        };
-
         if (isEditing) {
           return (
-            <form key={vc.id} onSubmit={handleAddExpression} className="relative px-3 py-1">
-              <input
-                type="text"
-                autoFocus
-                value={expressionInput}
-                onChange={(e) => handleInputChange(e.target.value)}
-                onKeyDown={(e) => {
-                  if (showSuggestions) {
-                    const suggestions = channels.filter(ch => {
-                       const full = `${ch.sensorName}.${ch.name}`.toLowerCase();
-                       const short = ch.name.toLowerCase();
-                       const q = suggestionFilter.toLowerCase();
-                       return full.includes(q) || short.includes(q);
-                    }).slice(0, 8);
-
-                    if (e.key === "ArrowDown") {
-                      e.preventDefault();
-                      setSuggestionIndex(prev => (prev + 1) % suggestions.length);
-                    } else if (e.key === "ArrowUp") {
-                      e.preventDefault();
-                      setSuggestionIndex(prev => (prev - 1 + suggestions.length) % suggestions.length);
-                    } else if (e.key === "Enter" || e.key === "Tab") {
-                      if (suggestions[suggestionIndex]) {
-                        e.preventDefault();
-                        selectSuggestion(suggestions[suggestionIndex]);
-                      }
-                    } else if (e.key === "Escape") {
-                      setShowSuggestions(false);
-                    }
-                  } else if (e.key === "Escape") {
-                    setEditingId(null);
-                    setIsAddingExpression(false);
-                  }
-                }}
-                onBlur={() => {
-                  setTimeout(() => {
-                    if (!showSuggestions) {
-                      setEditingId(null);
-                      setIsAddingExpression(false);
-                    }
-                  }, 200);
-                }}
-                className="w-full rounded border border-[#f97316]/50 bg-[#121212] px-2 py-0.5 text-[11px] text-foreground focus:outline-none focus:ring-1 focus:ring-[#f97316]"
-              />
-              {renderSuggestionsMenu()}
-            </form>
+            <VirtualExpressionEditor
+              key={vc.id}
+              initialValue={vc.expression}
+              channels={channels}
+              nameCounts={nameCounts}
+              onSubmit={handleAddExpression}
+              onCancel={() => {
+                setEditingId(null);
+                setIsAddingExpression(false);
+              }}
+            />
           );
         }
 
         return (
-          <div
+          <ChannelRow
             key={vc.id}
+            id={vc.id}
+            isVirtual
+            isSelected={isSelected}
+            displayName={vc.name}
+            expression={vc.expression}
             onClick={(e) => handleChannelClick(e, vc.id)}
             onDoubleClick={() => handleStartEdit(vc)}
             onContextMenu={(e) => handleContextMenu(e, vc.id)}
-            className={`flex cursor-pointer select-none items-center gap-2 rounded px-3 py-1 text-[11px] transition-all group ${isSelected
-              ? "bg-[#f97316]/10 text-foreground ring-1 ring-inset ring-[#f97316]/30"
-              : "text-amber-500/70 hover:bg-[#1c1b1b] hover:text-amber-500"
-              }`}
-          >
-            <FunctionSquare
-              className={`h-2.5 w-2.5 shrink-0 ${isSelected ? "text-[#f97316]" : "text-amber-500/50"
-                }`}
-            />
-            <span className="flex-1 truncate" title={`Double click to edit: ${vc.expression}`}>
-              {vc.name}
-            </span>
-            <span className="font-mono text-[10px] opacity-40 text-amber-500/50 group-hover:hidden">derived</span>
-            <span className="hidden group-hover:inline font-mono text-[9px] opacity-60 text-amber-500">Edit</span>
-          </div>
+          />
         );
       })}
 
+      {/* Add New Logic */}
       {isAddingExpression && !editingId ? (
-        <form onSubmit={handleAddExpression} className="relative px-3 py-1 mt-1">
-          <input
-            type="text"
-            autoFocus
-            value={expressionInput}
-            onChange={(e) => handleInputChange(e.target.value)}
-            onKeyDown={(e) => {
-              if (showSuggestions) {
-                const suggestions = channels.filter(ch => {
-                   const full = `${ch.sensorName}.${ch.name}`.toLowerCase();
-                   const short = ch.name.toLowerCase();
-                   const q = suggestionFilter.toLowerCase();
-                   return full.includes(q) || short.includes(q);
-                }).slice(0, 8);
-
-                if (e.key === "ArrowDown") {
-                  e.preventDefault();
-                  setSuggestionIndex(prev => (prev + 1) % suggestions.length);
-                } else if (e.key === "ArrowUp") {
-                  e.preventDefault();
-                  setSuggestionIndex(prev => (prev - 1 + suggestions.length) % suggestions.length);
-                } else if (e.key === "Enter" || e.key === "Tab") {
-                  if (suggestions[suggestionIndex]) {
-                    e.preventDefault();
-                    selectSuggestion(suggestions[suggestionIndex]);
-                  }
-                } else if (e.key === "Escape") {
-                  setShowSuggestions(false);
-                }
-              }
-            }}
-            onBlur={() => {
-              setTimeout(() => {
-                if (!showSuggestions) {
-                  setIsAddingExpression(false);
-                  setShowSuggestions(false);
-                  setEditingId(null);
-                }
-              }, 200);
-            }}
+        <div className="mt-1">
+          <VirtualExpressionEditor
+            channels={channels}
+            nameCounts={nameCounts}
+            onSubmit={handleAddExpression}
+            onCancel={() => setIsAddingExpression(false)}
             placeholder="e.g. @tire - @fl"
-            className="w-full rounded border border-[#f97316]/50 bg-[#121212] px-2 py-1 text-[11px] text-foreground focus:outline-none focus:ring-1 focus:ring-[#f97316]"
           />
-          {(() => {
-            if (!showSuggestions) return null;
-            const suggestions = channels.filter(ch => {
-              const full = `${ch.sensorName}.${ch.name}`.toLowerCase();
-              const short = ch.name.toLowerCase();
-              const q = suggestionFilter.toLowerCase();
-              return full.includes(q) || short.includes(q);
-            }).slice(0, 8);
-
-            return (
-              <div className="absolute left-3 right-3 bottom-full mb-1 z-50 rounded-md border border-[#27272a] bg-[#1c1b1b] p-1 shadow-xl">
-                {suggestions.map((ch, idx) => {
-                  const isCollision = (nameCounts.get(ch.name) || 0) > 1;
-                  const tag = (isCollision ? `${ch.sensorName}.${ch.name}` : ch.name).replace(/[^a-zA-Z0-9_\.]+/g, "_");
-                  return (
-                    <button
-                      key={ch.id}
-                      type="button"
-                      onMouseDown={(e) => e.preventDefault()}
-                      onClick={() => selectSuggestion(ch)}
-                      className={`flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-[11px] transition-colors ${idx === suggestionIndex ? "bg-[#f97316]/20 text-foreground" : "text-muted-foreground hover:bg-[#121212]"}`}
-                    >
-                      <Hash className="h-2.5 w-2.5 text-muted-foreground/30" />
-                      <span className="flex-1 truncate">{tag}</span>
-                      {ch.sensorName && <span className="opacity-30 text-[9px] truncate">{ch.sensorName}</span>}
-                    </button>
-                  );
-                })}
-              </div>
-            );
-          })()}
-        </form>
+        </div>
       ) : (
         <button
           className="flex items-center gap-1.5 w-full px-3 py-1.5 text-[10px] uppercase font-mono tracking-widest text-muted-foreground/50 hover:text-amber-500 transition-colors mt-1"
@@ -532,6 +329,182 @@ function DatasetChannels({
         <ContextMenu x={menu.x} y={menu.y} items={menu.items} onClose={closeMenu} />
       )}
     </div>
+  );
+}
+
+/* ─── Refactored Sub-components ────────────────────────────────────────────── */
+
+function ChannelRow({
+  displayName,
+  unit,
+  expression,
+  isVirtual,
+  isSelected,
+  onClick,
+  onDoubleClick,
+  onContextMenu
+}: {
+  id: string;
+  displayName: string;
+  unit?: string | null;
+  expression?: string;
+  isVirtual?: boolean;
+  isSelected?: boolean;
+  onClick: (e: React.MouseEvent) => void;
+  onDoubleClick?: () => void;
+  onContextMenu: (e: React.MouseEvent) => void;
+}) {
+  return (
+    <div
+      onClick={onClick}
+      onDoubleClick={onDoubleClick}
+      onContextMenu={onContextMenu}
+      className={`flex cursor-pointer select-none items-center gap-2 rounded px-3 py-1 text-[11px] transition-all group ${isSelected
+        ? "bg-[#f97316]/10 text-foreground ring-1 ring-inset ring-[#f97316]/30"
+        : isVirtual ? "text-amber-500/70 hover:bg-[#1c1b1b] hover:text-amber-500" : "text-muted-foreground/70 hover:bg-[#1c1b1b] hover:text-muted-foreground"
+        }`}
+    >
+      {isVirtual ? (
+        <FunctionSquare className={`h-2.5 w-2.5 shrink-0 ${isSelected ? "text-[#f97316]" : "text-amber-500/50"}`} />
+      ) : (
+        <Hash className={`h-2.5 w-2.5 shrink-0 ${isSelected ? "text-[#f97316]" : "text-muted-foreground/30"}`} />
+      )}
+      
+      <span className="flex-1 truncate" title={isVirtual ? `Double click to edit: ${expression}` : displayName}>
+        {displayName}
+      </span>
+
+      {isVirtual ? (
+        <>
+          <span className="font-mono text-[10px] opacity-40 text-amber-500/50 group-hover:hidden">derived</span>
+          <span className="hidden group-hover:inline font-mono text-[9px] opacity-60 text-amber-500">Edit</span>
+        </>
+      ) : unit && (
+        <span className="font-mono text-[10px] opacity-40">{unit}</span>
+      )}
+    </div>
+  );
+}
+
+function VirtualExpressionEditor({
+  initialValue = "",
+  channels,
+  nameCounts,
+  onSubmit,
+  onCancel,
+  placeholder = "Expression..."
+}: {
+  initialValue?: string;
+  channels: any[];
+  nameCounts: Map<string, number>;
+  onSubmit: (val: string) => void;
+  onCancel: () => void;
+  placeholder?: string;
+}) {
+  const [val, setVal] = useState(initialValue);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [suggestionFilter, setSuggestionFilter] = useState("");
+  const [suggestionIndex, setSuggestionIndex] = useState(0);
+
+  const filteredSuggestions = channels.filter(ch => {
+    const full = `${ch.sensorName}.${ch.name}`.toLowerCase();
+    const short = ch.name.toLowerCase();
+    const q = suggestionFilter.toLowerCase();
+    return full.includes(q) || short.includes(q);
+  }).slice(0, 8);
+
+  const handleInputChange = (newVal: string) => {
+    setVal(newVal);
+    const lastAt = newVal.lastIndexOf("@");
+    if (lastAt !== -1) {
+      const query = newVal.slice(lastAt + 1);
+      if (!query.includes(" ")) {
+        setSuggestionFilter(query);
+        setShowSuggestions(true);
+        setSuggestionIndex(0);
+      } else {
+        setShowSuggestions(false);
+      }
+    } else {
+      setShowSuggestions(false);
+    }
+  };
+
+  const selectSuggestion = (ch: any) => {
+    const lastAt = val.lastIndexOf("@");
+    const prefix = val.slice(0, lastAt);
+    const isCollision = (nameCounts.get(ch.name) || 0) > 1;
+    const rawTag = isCollision ? `${ch.sensorName}.${ch.name}` : ch.name;
+    const tag = rawTag.replace(/[^a-zA-Z0-9_\.]+/g, "_");
+    setVal(prefix + tag + " ");
+    setShowSuggestions(false);
+  };
+
+  return (
+    <form 
+      className="relative px-3 py-1"
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (showSuggestions) return;
+        if (val.trim()) onSubmit(val);
+      }}
+    >
+      <input
+        type="text"
+        autoFocus
+        value={val}
+        onChange={(e) => handleInputChange(e.target.value)}
+        onKeyDown={(e) => {
+          if (showSuggestions) {
+            if (e.key === "ArrowDown") {
+              e.preventDefault();
+              setSuggestionIndex(prev => (prev + 1) % filteredSuggestions.length);
+            } else if (e.key === "ArrowUp") {
+              e.preventDefault();
+              setSuggestionIndex(prev => (prev - 1 + filteredSuggestions.length) % filteredSuggestions.length);
+            } else if (e.key === "Enter" || e.key === "Tab") {
+              if (filteredSuggestions[suggestionIndex]) {
+                e.preventDefault();
+                selectSuggestion(filteredSuggestions[suggestionIndex]);
+              }
+            } else if (e.key === "Escape") {
+              setShowSuggestions(false);
+            }
+          } else if (e.key === "Escape") {
+            onCancel();
+          }
+        }}
+        onBlur={() => {
+          setTimeout(() => {
+            if (!showSuggestions) onCancel();
+          }, 200);
+        }}
+        placeholder={placeholder}
+        className="w-full rounded border border-[#f97316]/50 bg-[#121212] px-2 py-0.5 text-[11px] text-foreground focus:outline-none focus:ring-1 focus:ring-[#f97316]"
+      />
+
+      {showSuggestions && (
+        <div className="absolute left-3 right-3 bottom-full mb-1 z-50 rounded-md border border-[#27272a] bg-[#1c1b1b] p-1 shadow-xl">
+          {filteredSuggestions.map((ch, idx) => {
+            const isCollision = (nameCounts.get(ch.name) || 0) > 1;
+            const tag = (isCollision ? `${ch.sensorName}.${ch.name}` : ch.name).replace(/[^a-zA-Z0-9_\.]+/g, "_");
+            return (
+              <button
+                key={ch.id}
+                type="button"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => selectSuggestion(ch)}
+                className={`flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-[11px] transition-colors ${idx === suggestionIndex ? "bg-[#f97316]/20 text-foreground" : "text-muted-foreground hover:bg-[#121212]"}`}
+              >
+                <Hash className="h-2.5 w-2.5 text-muted-foreground/30" />
+                <span className="flex-1 truncate">{tag}</span>
+                {ch.sensorName && <span className="opacity-30 text-[9px] truncate">{ch.sensorName}</span>}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </form>
   );
 }
 

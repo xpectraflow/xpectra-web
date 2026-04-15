@@ -37,6 +37,7 @@ type PlaygroundContextValue = {
 
   virtualChannels: VirtualChannel[];
   addVirtualChannel: (vc: Omit<VirtualChannel, "id">) => void;
+  updateVirtualChannel: (vcId: string, updates: Partial<VirtualChannel>) => void;
   removeVirtualChannel: (vcId: string) => void;
 };
 
@@ -49,6 +50,7 @@ export const PlaygroundContext = createContext<PlaygroundContextValue>({
   removePlot: () => {},
   virtualChannels: [],
   addVirtualChannel: () => {},
+  updateVirtualChannel: () => {},
   removeVirtualChannel: () => {},
 });
 
