@@ -336,11 +336,15 @@ export function TelemetryChart({
 
   // --- Debounced Time Sync ---
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
+  // Track the most recent "intended" range locally to prevent React snapping back to stale store values
+  const lastIntendedRange = useRef<{ start: number; end: number } | null>(null);
   
   const debouncedSetTimeRange = useCallback((start: number, end: number) => {
+    lastIntendedRange.current = { start, end };
     if (debounceTimer.current) clearTimeout(debounceTimer.current);
     debounceTimer.current = setTimeout(() => {
       setTimeRange(start, end);
+      lastIntendedRange.current = null; // Clear once store is updated
     }, 500);
   }, [setTimeRange]);
 
@@ -365,25 +369,34 @@ export function TelemetryChart({
   }, [linked, chartInstance, startTime, endTime, debouncedSetTimeRange]);
 
   const handleManualZoom = (direction: "in" | "out") => {
-    if (!startTime || !endTime) return;
-    const center = (startTime + endTime) / 2;
-    const currentRange = endTime - startTime;
+    if (!chartInstance) return;
+
+    const opt = chartInstance.getOption() as any;
+    const dz = opt.dataZoom?.[0];
+    
+    // Use the CURRENT chart view as the base, not the store (which might be stale during rapid clicks)
+    const currentStart = (dz && typeof dz.startValue === "number") ? dz.startValue : (startTime ?? 0);
+    const currentEnd = (dz && typeof dz.endValue === "number") ? dz.endValue : (endTime ?? 0);
+
+    const center = (currentStart + currentEnd) / 2;
+    const currentRange = currentEnd - currentStart;
     const factor = direction === "in" ? 0.6 : 1.6;
     const newHalfRange = (currentRange * factor) / 2;
     
     const newStart = center - newHalfRange;
     const newEnd = center + newHalfRange;
     
-    // Update local chart instance immediately for snappy feedback
-    if (chartInstance) {
-      chartInstance.dispatchAction({
-        type: "dataZoom",
-        startValue: newStart,
-        endValue: newEnd
-      });
-    }
+    // Update local chart instance immediately
+    chartInstance.dispatchAction({
+      type: "dataZoom",
+      startValue: newStart,
+      endValue: newEnd
+    });
 
-    // Sync to store after debounce
+    // Update synchronization ref immediately so incidental re-renders don't snap back
+    lastIntendedRange.current = { start: newStart, end: newEnd };
+
+    // Sync to other charts after debounce
     debouncedSetTimeRange(newStart, newEnd);
   };
 
@@ -426,6 +439,10 @@ export function TelemetryChart({
     return [];
   });
 
+  // Determine chart view bounds: Priority = Local Intended > Global Store
+  const displayStart = lastIntendedRange.current?.start ?? startTime ?? undefined;
+  const displayEnd = lastIntendedRange.current?.end ?? endTime ?? undefined;
+
   const chartOption = {
     animation: false,
     backgroundColor: "transparent",
@@ -438,8 +455,8 @@ export function TelemetryChart({
     } : { type: "value", name: "Hz", axisLine: { lineStyle: { color: "#27272a" } }, axisLabel: { color: "#71717a", fontSize: 10 }, splitLine: { show: false } },
     yAxis: yAxes,
     dataZoom: [
-      { type: "inside", filterMode: "none", startValue: startTime ?? undefined, endValue: endTime ?? undefined },
-      { type: "slider", filterMode: "none", startValue: startTime ?? undefined, endValue: endTime ?? undefined, bottom: 10, height: 24, borderColor: "#27272a", backgroundColor: "#131313", handleStyle: { color: "#f97316" }, textStyle: { color: "#71717a", fontSize: 9 } }
+      { type: "inside", filterMode: "none", startValue: displayStart, endValue: displayEnd },
+      { type: "slider", filterMode: "none", startValue: displayStart, endValue: displayEnd, bottom: 10, height: 24, borderColor: "#27272a", backgroundColor: "#131313", handleStyle: { color: "#f97316" }, textStyle: { color: "#71717a", fontSize: 9 } }
     ],
     series: echartsSeries,
   };
