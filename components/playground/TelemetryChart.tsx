@@ -4,14 +4,13 @@ import { useEffect, useRef, useCallback, useState, useMemo } from "react";
 import ReactECharts from "echarts-for-react";
 import type { EChartsInstance } from "echarts-for-react";
 import * as echarts from "echarts";
-import { Loader2, AlertCircle, BarChart2, Link2, Link2Off, Activity, MoreVertical, Maximize2, Minimize2, ZoomIn, ZoomOut } from "lucide-react";
+import { Loader2, Link2, Link2Off, Activity, MoreVertical, ZoomIn, ZoomOut, Maximize2 } from "lucide-react";
 import { usePlaygroundTimeStore } from "@/stores/playgroundTime";
-import { usePlayground, PlottedChannelGroup, VirtualChannel } from "@/components/playground/PlaygroundContext";
-import { useContextMenu, ContextMenuItem, ContextMenu } from "@/components/playground/ContextMenu";
-import { computeFFT } from "@/lib/math/fft";
+import { usePlayground, PlottedChannelGroup } from "@/components/playground/PlaygroundContext";
+import { useContextMenu, ContextMenu } from "@/components/playground/ContextMenu";
 import { useTelemetrySeries, getGlobalId } from "@/hooks/useTelemetrySeries";
 
-export { getGlobalId }; // Re-export for any consumers
+export { getGlobalId };
 
 interface TelemetryChartProps {
   groups: PlottedChannelGroup[];
@@ -48,14 +47,17 @@ export function TelemetryChart({
   const containerRef = useRef<HTMLDivElement>(null);
   const [isInView, setIsInView] = useState(false);
   const [chartInstance, setChartInstance] = useState<EChartsInstance | null>(null);
-  const [chartMode, setChartMode] = useState<"time" | "frequency">("time");
+  
+  // --- Fundamental State ---
+  const [mode, setMode] = useState<"time" | "frequency">("time");
   const [isCalculatingFFT, setIsCalculatingFFT] = useState(false);
   const [spectralSeriesData, setSpectralSeriesData] = useState<any[]>([]);
+  const lastRenderedMode = useRef<"time" | "frequency">("time");
 
   const { startTime, endTime, linked, setTimeRange, toggleLinked } = usePlaygroundTimeStore();
   const { virtualChannels } = usePlayground();
 
-  // Make sure we trigger fetch when scrolled into view
+  // Manage visibility/fetch trigger
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -75,39 +77,69 @@ export function TelemetryChart({
     return Array.from(units);
   }, [allSeries]);
 
-  // Async Spectral Calculation
+  // --- Worker-Based FFT Logic ---
+  const workerRef = useRef<Worker | null>(null);
+  const lastCalculationId = useRef<number>(0);
+  const lastDataFingerprint = useRef<string>("");
+
   useEffect(() => {
-    if (chartMode === "frequency" && allSeries.length > 0) {
+    if (mode === "frequency" && allSeries.length > 0) {
+      // Calculate a fingerprint to avoid redundant updates if data hasn't changed
+      const finger = allSeries.map(s => `${s.globalId}:${s.points.length}:${s.points[0]?.t}:${s.points[s.points.length-1]?.t}`).join("|");
+      
+      if (finger === lastDataFingerprint.current && !isCalculatingFFT && spectralSeriesData.length > 0) {
+        // Data is the same as what we already calculated, don't restart
+        return;
+      }
+
+      if (!workerRef.current) {
+        // Initialize worker as module
+        workerRef.current = new Worker(new URL("../../lib/math/fft.worker.ts", import.meta.url), { type: "module" });
+        
+        workerRef.current.onmessage = (e) => {
+          const { results, requestId, error } = e.data;
+          // Only apply if it's the latest request to avoid race conditions
+          if (requestId === lastCalculationId.current) {
+            if (error) {
+              console.error("Worker failed:", error);
+            } else {
+              setSpectralSeriesData(results);
+            }
+            setIsCalculatingFFT(false);
+          }
+        };
+
+        workerRef.current.onerror = (err) => {
+          console.error("Worker process error:", err);
+          setIsCalculatingFFT(false);
+        };
+      }
+      
+      const reqId = ++lastCalculationId.current;
+      lastDataFingerprint.current = finger;
       setIsCalculatingFFT(true);
-      // Give the UI a chance to show the spinner before blocking with heavy math
-      const timer = setTimeout(() => {
-        const results = allSeries.flatMap((s: any) => {
-          if (s.points.length < 3) return [];
-          const color = colorMap[s.globalId] || "#ccc";
-          const yAxisIndex = s.unit ? Math.max(0, uniqueUnits.indexOf(s.unit)) : 0;
-          const dtMs = Math.max(1, s.points[1].t - s.points[0].t);
-          const f = computeFFT(s.points.map((p: any) => p.avg), dtMs);
-          
-          return [{
-            name: s.displayName + " (FFT)",
-            type: "line",
-            data: f.freq.map((freq: any, i: number) => [freq, f.mag[i]]),
-            lineStyle: { color, width: 1.5 },
-            itemStyle: { color },
-            showSymbol: false,
-            yAxisIndex,
-            z: 2,
-          }];
-        });
-        setSpectralSeriesData(results);
-        setIsCalculatingFFT(false);
-      }, 100);
-      return () => clearTimeout(timer);
-    } else {
+      
+      workerRef.current.postMessage({
+        series: allSeries,
+        colorMap,
+        uniqueUnits,
+        requestId: reqId
+      });
+    }
+
+    if (mode === "time") {
       setSpectralSeriesData([]);
       setIsCalculatingFFT(false);
+      lastDataFingerprint.current = "";
     }
-  }, [chartMode, allSeries, colorMap, uniqueUnits]);
+  }, [mode, allSeries, colorMap, uniqueUnits, spectralSeriesData.length, isCalculatingFFT]);
+
+  // Clean up worker on unmount
+  useEffect(() => {
+    return () => {
+      workerRef.current?.terminate();
+    };
+  }, []);
 
   // --- Debounced Time Sync ---
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
@@ -122,19 +154,12 @@ export function TelemetryChart({
     }, 500);
   }, [setTimeRange]);
 
-  useEffect(() => {
-    return () => {
-      if (debounceTimer.current) clearTimeout(debounceTimer.current);
-    };
-  }, []);
-
   // ECharts Logic
   const handleDataZoom = useCallback(() => {
     if (!linked || !chartInstance) return;
     const option = chartInstance.getOption() as any;
     const dz = option.dataZoom?.[0];
     if (dz && typeof dz.startValue === "number" && typeof dz.endValue === "number") {
-      // Both are already RELATIVE (0 to duration)
       if (Math.abs(dz.startValue - (startTime ?? 0)) > 1 || Math.abs(dz.endValue - (endTime ?? 0)) > 1) {
         debouncedSetTimeRange(dz.startValue, dz.endValue);
       }
@@ -167,117 +192,132 @@ export function TelemetryChart({
     debouncedSetTimeRange(newStart, newEnd);
   };
 
-  const yAxes = uniqueUnits.length > 0
-    ? uniqueUnits.map((unit, i) => ({
+  const yAxes = useMemo(() => {
+    if (uniqueUnits.length === 0) {
+      return [{ type: "value" as const, axisLabel: { color: "#71717a", fontSize: 10 }, axisLine: { lineStyle: { color: "#27272a" } }, splitLine: { lineStyle: { color: "#27272a", type: "dashed" } } }];
+    }
+    return uniqueUnits.map((unit, i) => ({
       type: "value" as const, name: unit, position: i === 0 ? "left" : "right",
       nameTextStyle: { color: "#71717a", fontSize: 9 },
       axisLabel: { color: "#71717a", fontSize: 10 },
       axisLine: { lineStyle: { color: "#27272a" } },
       splitLine: { lineStyle: { color: i === 0 ? "#27272a" : "transparent", type: "dashed" } },
-    }))
-    : [{ type: "value" as const, axisLabel: { color: "#71717a", fontSize: 10 }, axisLine: { lineStyle: { color: "#27272a" } }, splitLine: { lineStyle: { color: "#27272a", type: "dashed" } } }];
+    }));
+  }, [uniqueUnits]);
 
   const currentStartTime = startTime ?? 0;
   const currentEndTime = endTime ?? 1000;
   const rangeMs = currentEndTime - currentStartTime;
 
-  const echartsSeries = allSeries.flatMap((s: any): any => {
+  // Time-domain series
+  const timeSeriesData = useMemo(() => allSeries.flatMap((s: any): any => {
     const color = colorMap[s.globalId] || "#ccc";
     const yAxisIndex = s.unit ? Math.max(0, uniqueUnits.indexOf(s.unit)) : 0;
+    return [
+      {
+        name: `${s.displayName} min`,
+        type: "line",
+        data: s.points.map((p: any) => [p.t, p.min]),
+        lineStyle: { color, width: 0.5, opacity: 0.2, type: "dashed" },
+        itemStyle: { opacity: 0 },
+        yAxisIndex,
+        showSymbol: false,
+        silent: true,
+        tooltip: { show: false },
+        z: 1,
+      },
+      {
+        name: `${s.displayName} max`,
+        type: "line",
+        data: s.points.map((p: any) => [p.t, p.max]),
+        lineStyle: { color, width: 0.5, opacity: 0.2, type: "dashed" },
+        itemStyle: { opacity: 0 },
+        yAxisIndex,
+        showSymbol: false,
+        silent: true,
+        tooltip: { show: false },
+        z: 1,
+      },
+      {
+        name: s.displayName,
+        type: "line",
+        data: s.points.map((p: any) => [p.t, p.avg]),
+        lineStyle: { color, width: 2 },
+        itemStyle: { color },
+        areaStyle: {
+          opacity: 0.2,
+          origin: "start",
+          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+            { offset: 0, color: color },
+            { offset: 1, color: "rgba(0,0,0,0)" }
+          ]),
+        },
+        showSymbol: false,
+        yAxisIndex,
+        z: 2,
+      }
+    ];
+  }), [allSeries, colorMap, uniqueUnits]);
 
-    if (chartMode === "time") {
-      return [
-        // 1. Min/Max faint lines (no fill)
-        {
-          name: `${s.displayName} min`,
-          type: "line",
-          data: s.points.map((p: any) => [p.t, p.min]),
-          lineStyle: { color, width: 0.5, opacity: 0.2, type: "dashed" },
-          itemStyle: { opacity: 0 },
-          yAxisIndex,
-          showSymbol: false,
-          silent: true,
-          tooltip: { show: false },
-          z: 1,
-        },
-        {
-          name: `${s.displayName} max`,
-          type: "line",
-          data: s.points.map((p: any) => [p.t, p.max]),
-          lineStyle: { color, width: 0.5, opacity: 0.2, type: "dashed" },
-          itemStyle: { opacity: 0 },
-          yAxisIndex,
-          showSymbol: false,
-          silent: true,
-          tooltip: { show: false },
-          z: 1,
-        },
-        // 2. Primary average line with downward gradient fill
-        {
-          name: s.displayName,
-          type: "line",
-          data: s.points.map((p: any) => [p.t, p.avg]),
-          lineStyle: { color, width: 2 },
-          itemStyle: { color },
-          areaStyle: {
-            opacity: 0.2,
-            origin: "start",
-            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-              { offset: 0, color: color },
-              { offset: 1, color: "rgba(0,0,0,0)" }
-            ]),
-          },
-          showSymbol: false,
-          yAxisIndex,
-          z: 2,
-        }
-      ];
-    } else {
-      return spectralSeriesData;
-    }
-  });
+  // Active series: swap instantly
+  const activeSeries = mode === "time" ? timeSeriesData : spectralSeriesData;
 
   const displayStart = lastIntendedRange.current?.start ?? currentStartTime;
   const displayEnd = lastIntendedRange.current?.end ?? currentEndTime;
 
-  const chartOption: any = {
-    animation: false,
-    backgroundColor: "transparent",
-    tooltip: { trigger: "axis", axisPointer: { type: "cross" }, backgroundColor: "#1c1b1b", borderColor: "#27272a", textStyle: { color: "#e4e4e7", fontSize: 11 }, confine: true },
-    legend: { type: "scroll", bottom: 40, textStyle: { color: "#71717a", fontSize: 10 }, data: allSeries.map((s: any) => s.displayName) },
-    grid: { left: 60, right: uniqueUnits.length > 1 ? 60 : 12, top: 10, bottom: 80 },
-    xAxis: chartMode === "time" ? {
-      type: "value", axisLine: { lineStyle: { color: "#27272a" } }, splitLine: { show: false },
-      axisLabel: { color: "#71717a", fontSize: 10, formatter: autoTimeFormatter(rangeMs) },
-    } : { type: "value", name: "Hz", axisLine: { lineStyle: { color: "#27272a" } }, axisLabel: { color: "#71717a", fontSize: 10 }, splitLine: { show: false } },
-    yAxis: yAxes,
-    dataZoom: chartMode === "time" ? [
-      { type: "inside", filterMode: "none", startValue: displayStart, endValue: displayEnd },
-      { type: "slider", filterMode: "none", startValue: displayStart, endValue: displayEnd, bottom: 10, height: 24, borderColor: "#27272a", backgroundColor: "#131313", handleStyle: { color: "#f97316" }, textStyle: { color: "#71717a", fontSize: 9 } }
-    ] : [
-      { type: "inside", filterMode: "none", startValue: undefined, endValue: undefined },
-      { type: "slider", filterMode: "none", startValue: undefined, endValue: undefined, bottom: 10, height: 24, borderColor: "#27272a", backgroundColor: "#131313", handleStyle: { color: "#f97316" }, textStyle: { color: "#71717a", fontSize: 9 } }
-    ],
-    series: echartsSeries as any[],
-  };
+  const chartOption = useMemo(() => {
+    const isFreq = mode === "frequency";
+    return {
+      animation: false,
+      backgroundColor: "transparent",
+      tooltip: { trigger: "axis", axisPointer: { type: "cross" }, backgroundColor: "#1c1b1b", borderColor: "#27272a", textStyle: { color: "#e4e4e7", fontSize: 11 }, confine: true },
+      legend: { type: "scroll", bottom: 40, textStyle: { color: "#71717a", fontSize: 10 }, data: allSeries.map((s: any) => s.displayName) },
+      grid: { left: 60, right: uniqueUnits.length > 1 ? 60 : 12, top: 10, bottom: 80 },
+      xAxis: isFreq ? {
+        type: "value", name: "Hz", axisLine: { lineStyle: { color: "#27272a" } }, axisLabel: { color: "#71717a", fontSize: 10 }, splitLine: { show: false }
+      } : {
+        type: "value", axisLine: { lineStyle: { color: "#27272a" } }, splitLine: { show: false },
+        axisLabel: { color: "#71717a", fontSize: 10, formatter: autoTimeFormatter(rangeMs) },
+      },
+      yAxis: yAxes,
+      dataZoom: isFreq ? [
+        { type: "inside", filterMode: "none" },
+        { type: "slider", filterMode: "none", bottom: 10, height: 24, borderColor: "#27272a", backgroundColor: "#131313", handleStyle: { color: "#f97316" }, textStyle: { color: "#71717a", fontSize: 9 } }
+      ] : [
+        { type: "inside", filterMode: "none", startValue: displayStart, endValue: displayEnd },
+        { type: "slider", filterMode: "none", startValue: displayStart, endValue: displayEnd, bottom: 10, height: 24, borderColor: "#27272a", backgroundColor: "#131313", handleStyle: { color: "#f97316" }, textStyle: { color: "#71717a", fontSize: 9 } }
+      ],
+      series: activeSeries,
+    };
+  }, [mode, activeSeries, allSeries, uniqueUnits, yAxes, displayStart, displayEnd, rangeMs]);
 
   const { menu, open: openMenu, close: closeMenu } = useContextMenu();
 
+  // Mode Swap Detection for notMerge
+  const shouldNotMerge = useMemo(() => {
+    const switched = lastRenderedMode.current !== mode;
+    lastRenderedMode.current = mode;
+    return switched;
+  }, [mode]);
+
+  const isGlobalLoading = !isInView || isLoading || isCalculatingFFT;
+
   return (
-    <div ref={containerRef} style={{ height: height ? `${height}px` : "100%" }} className="relative w-full overflow-hidden">
+    <div ref={containerRef} style={{ height: height ? `${height}px` : "100%" }} className="relative w-full overflow-hidden group/chart bg-[#0e0e0e]">
       
-      <div className="absolute right-2 top-2 z-10 flex items-center gap-0.5 bg-[#121212]/80 backdrop-blur-md rounded-lg border border-[#27272a] p-0.5 shadow-xl">
+      {/* Control Bar: z-50 to stay above everything */}
+      <div className="absolute right-2 top-2 z-50 flex items-center gap-0.5 bg-[#121212]/90 backdrop-blur-md rounded-lg border border-[#27272a] p-0.5 shadow-xl transition-all opacity-0 group-hover/chart:opacity-100 focus-within:opacity-100">
         <button 
           onClick={() => handleManualZoom("in")} 
-          title="Zoom In"
           className="p-1.5 text-muted-foreground hover:text-amber-500 hover:bg-[#1c1b1b] rounded-md transition-all active:scale-95"
+          title="Zoom In"
         >
           <ZoomIn className="h-4 w-4" />
         </button>
         <button 
           onClick={() => handleManualZoom("out")} 
-          title="Zoom Out"
           className="p-1.5 text-muted-foreground hover:text-amber-500 hover:bg-[#1c1b1b] rounded-md transition-all active:scale-95"
+          title="Zoom Out"
         >
           <ZoomOut className="h-4 w-4" />
         </button>
@@ -286,7 +326,7 @@ export function TelemetryChart({
 
         <button 
           onClick={(e) => openMenu(e, [
-            { type: "item", label: chartMode === "time" ? "FFT Mode" : "Time Mode", icon: <Activity className="h-4 w-4" />, onClick: () => setChartMode(chartMode === "time" ? "frequency" : "time") },
+            { type: "item", label: mode === "time" ? "Switch to FFT" : "Switch to Time", icon: <Activity className="h-4 w-4" />, onClick: () => setMode(mode === "time" ? "frequency" : "time") },
             { type: "item", label: linked ? "Unsync Zoom" : "Sync Zoom", icon: linked ? <Link2Off className="h-4 w-4" /> : <Link2 className="h-4 w-4" />, onClick: toggleLinked },
             { type: "item", label: isFullscreen ? "Exit Fullscreen" : "Fullscreen", icon: <Maximize2 className="h-4 w-4" />, onClick: onToggleFullscreen || (() => {}) }
           ])} 
@@ -295,20 +335,17 @@ export function TelemetryChart({
           <MoreVertical className="h-4 w-4" />
         </button>
       </div>
-      {menu && <ContextMenu {...menu} onClose={closeMenu} />}
-      {/* Loader Overlay - Using absolute position to cover chart without unmounting it */}
-      {(!isInView || isLoading || isCalculatingFFT || (chartMode === "frequency" && allSeries.length > 0 && spectralSeriesData.length === 0)) && (
-        <div className="absolute inset-0 z-40 flex items-center justify-center bg-[#09090b]/40 backdrop-blur-[1px] transition-all duration-300">
-          <Loader2 className="h-6 w-6 animate-spin text-[#f97316]/50" />
-        </div>
-      )}
 
-      {allSeries.length === 0 ? (
-        <div className="flex h-full items-center justify-center text-muted-foreground/30 font-mono text-xs">No data selected</div>
-      ) : (
-        <div className={`w-full h-full transition-opacity duration-300 ${(isLoading || isCalculatingFFT) ? "opacity-0" : "opacity-100"}`}>
+      {menu && <ContextMenu {...menu} onClose={closeMenu} />}
+
+      <div className="w-full h-full relative">
+        {allSeries.length === 0 ? (
+          <div className="flex h-full items-center justify-center text-muted-foreground/30 font-mono text-xs">No data selected</div>
+        ) : (
           <ReactECharts 
             option={chartOption} 
+            notMerge={shouldNotMerge}
+            lazyUpdate={true}
             style={{ height: "100%" }} 
             onEvents={{ datazoom: handleDataZoom }} 
             onChartReady={inst => { 
@@ -317,8 +354,23 @@ export function TelemetryChart({
               setChartInstance(inst); 
             }} 
           />
-        </div>
-      )}
+        )}
+
+        {/* Loading Overlay: Internal to the chart area, doesn't hide controls */}
+        {isGlobalLoading && (
+          <div className="absolute inset-0 z-40 flex items-center justify-center bg-[#0e0e0e]/40 backdrop-blur-[2px] transition-all duration-300">
+            <div className="flex flex-col items-center gap-3 rounded-xl bg-[#1c1b1b]/90 p-6 border border-[#27272a] shadow-2xl">
+              <Loader2 className="h-6 w-6 animate-spin text-amber-500" />
+              <div className="flex flex-col items-center">
+                <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                  {isCalculatingFFT ? "Computing Spectral Density..." : "Fetching Telemetry..."}
+                </span>
+                {isLoading && !isCalculatingFFT && <span className="text-[9px] text-muted-foreground/50 mt-1 uppercase">Synced Resolution Update</span>}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
