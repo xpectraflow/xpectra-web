@@ -49,6 +49,8 @@ export function TelemetryChart({
   const [isInView, setIsInView] = useState(false);
   const [chartInstance, setChartInstance] = useState<EChartsInstance | null>(null);
   const [chartMode, setChartMode] = useState<"time" | "frequency">("time");
+  const [isCalculatingFFT, setIsCalculatingFFT] = useState(false);
+  const [spectralSeriesData, setSpectralSeriesData] = useState<any[]>([]);
 
   const { startTime, endTime, linked, setTimeRange, toggleLinked } = usePlaygroundTimeStore();
   const { virtualChannels } = usePlayground();
@@ -67,6 +69,45 @@ export function TelemetryChart({
   const { allSeries, isLoading } = useTelemetrySeries({
     groups, virtualChannels, labelMap, isInView
   });
+
+  const uniqueUnits = useMemo(() => {
+    const units = new Set(allSeries.map((s: any) => s.unit).filter(Boolean));
+    return Array.from(units);
+  }, [allSeries]);
+
+  // Async Spectral Calculation
+  useEffect(() => {
+    if (chartMode === "frequency" && allSeries.length > 0) {
+      setIsCalculatingFFT(true);
+      // Give the UI a chance to show the spinner before blocking with heavy math
+      const timer = setTimeout(() => {
+        const results = allSeries.flatMap((s: any) => {
+          if (s.points.length < 3) return [];
+          const color = colorMap[s.globalId] || "#ccc";
+          const yAxisIndex = s.unit ? Math.max(0, uniqueUnits.indexOf(s.unit)) : 0;
+          const dtMs = Math.max(1, s.points[1].t - s.points[0].t);
+          const f = computeFFT(s.points.map((p: any) => p.avg), dtMs);
+          
+          return [{
+            name: s.displayName + " (FFT)",
+            type: "line",
+            data: f.freq.map((freq: any, i: number) => [freq, f.mag[i]]),
+            lineStyle: { color, width: 1.5 },
+            itemStyle: { color },
+            showSymbol: false,
+            yAxisIndex,
+            z: 2,
+          }];
+        });
+        setSpectralSeriesData(results);
+        setIsCalculatingFFT(false);
+      }, 100);
+      return () => clearTimeout(timer);
+    } else {
+      setSpectralSeriesData([]);
+      setIsCalculatingFFT(false);
+    }
+  }, [chartMode, allSeries, colorMap, uniqueUnits]);
 
   // --- Debounced Time Sync ---
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
@@ -126,7 +167,6 @@ export function TelemetryChart({
     debouncedSetTimeRange(newStart, newEnd);
   };
 
-  const uniqueUnits = Array.from(new Set(allSeries.map((s: any) => s.unit).filter(Boolean)));
   const yAxes = uniqueUnits.length > 0
     ? uniqueUnits.map((unit, i) => ({
       type: "value" as const, name: unit, position: i === 0 ? "left" : "right",
@@ -157,6 +197,7 @@ export function TelemetryChart({
           yAxisIndex,
           showSymbol: false,
           silent: true,
+          tooltip: { show: false },
           z: 1,
         },
         {
@@ -168,6 +209,7 @@ export function TelemetryChart({
           yAxisIndex,
           showSymbol: false,
           silent: true,
+          tooltip: { show: false },
           z: 1,
         },
         // 2. Primary average line with downward gradient fill
@@ -190,15 +232,9 @@ export function TelemetryChart({
           z: 2,
         }
       ];
-    } else if (s.points.length > 2) {
-      const dtMs = Math.max(1, s.points[1].t - s.points[0].t);
-      const f = computeFFT(s.points.map((p: any) => p.avg), dtMs);
-      return [{
-        name: s.displayName + " (FFT)", type: "line", data: f.freq.map((freq: any, i: number) => [freq, f.mag[i]]),
-        lineStyle: { color, width: 1.5 }, itemStyle: { color }, showSymbol: false, yAxisIndex, z: 2,
-      }];
+    } else {
+      return spectralSeriesData;
     }
-    return [];
   });
 
   const displayStart = lastIntendedRange.current?.start ?? currentStartTime;
@@ -215,9 +251,12 @@ export function TelemetryChart({
       axisLabel: { color: "#71717a", fontSize: 10, formatter: autoTimeFormatter(rangeMs) },
     } : { type: "value", name: "Hz", axisLine: { lineStyle: { color: "#27272a" } }, axisLabel: { color: "#71717a", fontSize: 10 }, splitLine: { show: false } },
     yAxis: yAxes,
-    dataZoom: [
+    dataZoom: chartMode === "time" ? [
       { type: "inside", filterMode: "none", startValue: displayStart, endValue: displayEnd },
       { type: "slider", filterMode: "none", startValue: displayStart, endValue: displayEnd, bottom: 10, height: 24, borderColor: "#27272a", backgroundColor: "#131313", handleStyle: { color: "#f97316" }, textStyle: { color: "#71717a", fontSize: 9 } }
+    ] : [
+      { type: "inside", filterMode: "none", startValue: undefined, endValue: undefined },
+      { type: "slider", filterMode: "none", startValue: undefined, endValue: undefined, bottom: 10, height: 24, borderColor: "#27272a", backgroundColor: "#131313", handleStyle: { color: "#f97316" }, textStyle: { color: "#71717a", fontSize: 9 } }
     ],
     series: echartsSeries as any[],
   };
@@ -226,6 +265,7 @@ export function TelemetryChart({
 
   return (
     <div ref={containerRef} style={{ height: height ? `${height}px` : "100%" }} className="relative w-full overflow-hidden">
+      
       <div className="absolute right-2 top-2 z-10 flex items-center gap-0.5 bg-[#121212]/80 backdrop-blur-md rounded-lg border border-[#27272a] p-0.5 shadow-xl">
         <button 
           onClick={() => handleManualZoom("in")} 
@@ -256,12 +296,28 @@ export function TelemetryChart({
         </button>
       </div>
       {menu && <ContextMenu {...menu} onClose={closeMenu} />}
-      {!isInView || isLoading ? (
-        <div className="flex h-full items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-[#f97316]/50" /></div>
-      ) : allSeries.length === 0 ? (
+      {/* Loader Overlay - Using absolute position to cover chart without unmounting it */}
+      {(!isInView || isLoading || isCalculatingFFT || (chartMode === "frequency" && allSeries.length > 0 && spectralSeriesData.length === 0)) && (
+        <div className="absolute inset-0 z-40 flex items-center justify-center bg-[#09090b]/40 backdrop-blur-[1px] transition-all duration-300">
+          <Loader2 className="h-6 w-6 animate-spin text-[#f97316]/50" />
+        </div>
+      )}
+
+      {allSeries.length === 0 ? (
         <div className="flex h-full items-center justify-center text-muted-foreground/30 font-mono text-xs">No data selected</div>
       ) : (
-        <ReactECharts option={chartOption} style={{ height: "100%" }} onEvents={{ datazoom: handleDataZoom }} onChartReady={inst => { inst.group = "playground-sync"; echarts.connect("playground-sync"); setChartInstance(inst); }} />
+        <div className={`w-full h-full transition-opacity duration-300 ${(isLoading || isCalculatingFFT) ? "opacity-0" : "opacity-100"}`}>
+          <ReactECharts 
+            option={chartOption} 
+            style={{ height: "100%" }} 
+            onEvents={{ datazoom: handleDataZoom }} 
+            onChartReady={inst => { 
+              inst.group = "playground-sync"; 
+              echarts.connect("playground-sync"); 
+              setChartInstance(inst); 
+            }} 
+          />
+        </div>
       )}
     </div>
   );

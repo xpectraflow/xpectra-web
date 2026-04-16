@@ -5,6 +5,8 @@ import { PlottedChannelGroup, VirtualChannel } from "@/components/playground/Pla
 
 export const getGlobalId = (datasetId: string, channelId: string) => `${datasetId}:${channelId}`;
 
+const normalize = (s: string) => s.toLowerCase().replace(/[\s\-_]/g, "");
+
 interface UseTelemetrySeriesParams {
   groups: PlottedChannelGroup[];
   virtualChannels: VirtualChannel[];
@@ -63,20 +65,26 @@ export function useTelemetrySeries({
       const trace = (vcId: string) => {
         if (visited.has(vcId)) return;
         if (resolving.has(vcId)) {
-          console.warn("Circular dependency detected for VC:", vcId);
+          console.warn("[VC Trace] Circular dependency detected:", vcId);
           return;
         }
 
         resolving.add(vcId);
         const vc = datasetVirtuals.find(v => v.id === vcId);
         if (vc) {
-          const rawTokens = vc.expression.match(/[a-zA-Z0-9_\.]+/g) || [];
+          const rawTokens = vc.expression.match(/[a-zA-Z0-9_\.\-]+/g) || [];
           rawTokens.forEach(token => {
-            const physical = allChannels.find(c => c.name === token || `${c.sensorName}.${c.name}` === token);
+            const tokenNorm = normalize(token);
+            const physical = allChannels.find(c => {
+              const fullMatch = normalize(`${c.sensorName || ""}.${c.name}`);
+              const nameMatch = normalize(c.name);
+              return fullMatch === tokenNorm || nameMatch === tokenNorm;
+            });
+
             if (physical) {
               neededPhysicalIds.add(physical.id);
             } else {
-              const nestedVC = datasetVirtuals.find(v => v.name === token);
+              const nestedVC = datasetVirtuals.find(v => normalize(v.name) === tokenNorm);
               if (nestedVC) {
                 trace(nestedVC.id);
               }
@@ -119,7 +127,11 @@ export function useTelemetrySeries({
           startTime: (startTime ?? 0) + baseTime,
           endTime: (endTime ?? 0) + baseTime,
         }),
-        enabled: startTime !== null && endTime !== null && isInView && timeRanges[idx].status === "success",
+        enabled: startTime !== null && 
+                 endTime !== null && 
+                 isInView && 
+                 timeRanges[idx].status === "success" &&
+                 rg.neededPhysicalIds.length > 0,
       };
     })
   );
@@ -144,8 +156,15 @@ export function useTelemetrySeries({
       const baseTime = metadata.startTime ?? 0;
       const res = query.data;
 
+      // 4. Create a map for easy lookup during evaluation
+      // Enrich series with sensorName from physical metadata
+      const enrichedSeries = res.series.map((s: any) => {
+        const m = rg.meta.find(meta => meta.id === s.channelId);
+        return { ...s, sensorName: m?.sensorName ?? "" };
+      });
+
       // Add physical channels
-      res.series.filter((s: any) => rg.plottingPhysicals.includes(s.channelId)).forEach((s: any) => {
+      enrichedSeries.filter((s: any) => rg.plottingPhysicals.includes(s.channelId)).forEach((s: any) => {
         const fallbackName = s.sensorName ? `${s.sensorName}.${s.channelName}` : s.channelName;
         combined.push({
           ...s,
@@ -156,13 +175,7 @@ export function useTelemetrySeries({
       });
 
       // Evaluate virtual channels
-      const valMap = new Map<string, any>();
-      res.series.forEach((s: any) => {
-        valMap.set(s.channelName, s);
-        valMap.set(`${s.sensorName}.${s.channelName}`, s);
-      });
-
-      const samplesCount = res.series[0]?.points.length ?? 0;
+      const samplesCount = enrichedSeries[0]?.points.length ?? 0;
       
       rg.orderedVirtuals.forEach(vc => {
         const rawTokens = vc.expression.match(/[a-zA-Z0-9_\.]+/g) || [];
@@ -173,36 +186,47 @@ export function useTelemetrySeries({
           for (let i = 0; i < samplesCount; i++) {
             let expr = vc.expression.replace(/@/g, "");
             tokens.forEach((t: string) => {
-              const s = valMap.get(t);
+              const tNorm = normalize(t);
+              const s = enrichedSeries.find((series: any) => {
+                const fullMatch = normalize(`${series.sensorName || ""}.${series.channelName}`);
+                const nameMatch = normalize(series.channelName);
+                return fullMatch === tNorm || nameMatch === tNorm;
+              });
+              
               const val = s?.points[i]?.avg ?? 0;
-              const escapedT = t.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&');
-              expr = expr.replace(new RegExp(`(?<![a-zA-Z0-9_.])` + escapedT + `(?![a-zA-Z0-9_.])`, "g"), val.toString());
+              const escapedT = t.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&');
+              expr = expr.replace(new RegExp(`(?<![a-zA-Z0-9_.])` + escapedT + `(?![a-zA-Z0-9_.])`, "gi"), val.toString());
             });
             
             try {
               // eslint-disable-next-line no-eval
               const result = eval(expr);
               virtualPoints.push({
-                t: res.series[0].points[i].t,
+                t: enrichedSeries[0].points[i].t,
                 avg: result, min: result, max: result
               });
             } catch {
-              virtualPoints.push({ t: res.series[0].points[i].t, avg: 0, min: 0, max: 0 });
+              virtualPoints.push({ t: enrichedSeries[0].points[i].t, avg: 0, min: 0, max: 0 });
             }
           }
         }
 
         const vcSeries = {
           channelId: vc.id,
-          channelName: vc.name,
+          channelName: vc.name, // Allow matching by name in nested VCs
+          sensorName: "",       // VC names are global within the dataset group
           globalId: getGlobalId(rg.datasetId, vc.id),
-          points: virtualPoints.map((p: any) => ({ ...p, t: p.t - baseTime })), // Normalize time
+          points: virtualPoints.map((p: any) => ({ ...p, t: p.t - baseTime })), 
           unit: "Derived",
           displayName: labelMap?.[getGlobalId(rg.datasetId, vc.id)] ?? vc.name
         };
 
-        valMap.set(vc.name, { ...vcSeries, points: virtualPoints });
-        
+        // Important: Add to enrichedSeries so nested VCs can find this result
+        enrichedSeries.push({
+          ...vcSeries,
+          points: virtualPoints // Keep raw time for internal matching
+        });
+
         if (rg.plottingVirtuals.some(pv => pv.id === vc.id)) {
           combined.push(vcSeries);
         }
