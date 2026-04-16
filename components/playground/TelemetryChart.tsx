@@ -64,7 +64,7 @@ export function TelemetryChart({
     return () => obs.disconnect();
   }, []);
 
-  const { allSeries, isLoading, primaryBaseTime } = useTelemetrySeries({
+  const { allSeries, isLoading } = useTelemetrySeries({
     groups, virtualChannels, labelMap, isInView
   });
 
@@ -76,11 +76,10 @@ export function TelemetryChart({
     lastIntendedRange.current = { start: relativeStart, end: relativeEnd };
     if (debounceTimer.current) clearTimeout(debounceTimer.current);
     debounceTimer.current = setTimeout(() => {
-      // Store uses ABSOLUTE timestamps
-      setTimeRange(relativeStart + primaryBaseTime, relativeEnd + primaryBaseTime);
+      setTimeRange(relativeStart, relativeEnd);
       lastIntendedRange.current = null;
     }, 500);
-  }, [setTimeRange, primaryBaseTime]);
+  }, [setTimeRange]);
 
   useEffect(() => {
     return () => {
@@ -94,23 +93,20 @@ export function TelemetryChart({
     const option = chartInstance.getOption() as any;
     const dz = option.dataZoom?.[0];
     if (dz && typeof dz.startValue === "number" && typeof dz.endValue === "number") {
-      // ECharts values are RELATIVE (0 to duration)
-      const relativeStartInStore = (startTime ?? primaryBaseTime) - primaryBaseTime;
-      const relativeEndInStore = (endTime ?? (primaryBaseTime + 1000)) - primaryBaseTime;
-
-      if (Math.abs(dz.startValue - relativeStartInStore) > 1 || Math.abs(dz.endValue - relativeEndInStore) > 1) {
+      // Both are already RELATIVE (0 to duration)
+      if (Math.abs(dz.startValue - (startTime ?? 0)) > 1 || Math.abs(dz.endValue - (endTime ?? 0)) > 1) {
         debouncedSetTimeRange(dz.startValue, dz.endValue);
       }
     }
-  }, [linked, chartInstance, startTime, endTime, primaryBaseTime, debouncedSetTimeRange]);
+  }, [linked, chartInstance, startTime, endTime, debouncedSetTimeRange]);
 
   const handleManualZoom = (direction: "in" | "out") => {
     if (!chartInstance) return;
     const opt = chartInstance.getOption() as any;
     const dz = opt.dataZoom?.[0];
     
-    const currentStart = (dz && typeof dz.startValue === "number") ? dz.startValue : ((startTime ?? primaryBaseTime) - primaryBaseTime);
-    const currentEnd = (dz && typeof dz.endValue === "number") ? dz.endValue : ((endTime ?? (primaryBaseTime + 1000)) - primaryBaseTime);
+    const currentStart = (dz && typeof dz.startValue === "number") ? dz.startValue : (startTime ?? 0);
+    const currentEnd = (dz && typeof dz.endValue === "number") ? dz.endValue : (endTime ?? 0);
 
     const center = (currentStart + currentEnd) / 2;
     const currentRange = currentEnd - currentStart;
@@ -141,8 +137,8 @@ export function TelemetryChart({
     }))
     : [{ type: "value" as const, axisLabel: { color: "#71717a", fontSize: 10 }, axisLine: { lineStyle: { color: "#27272a" } }, splitLine: { lineStyle: { color: "#27272a", type: "dashed" } } }];
 
-  const currentStartTime = startTime ?? primaryBaseTime;
-  const currentEndTime = endTime ?? (primaryBaseTime + 1000);
+  const currentStartTime = startTime ?? 0;
+  const currentEndTime = endTime ?? 1000;
   const rangeMs = currentEndTime - currentStartTime;
 
   const echartsSeries = allSeries.flatMap((s: any): any => {
@@ -205,8 +201,8 @@ export function TelemetryChart({
     return [];
   });
 
-  const displayStart = lastIntendedRange.current?.start ?? (currentStartTime - primaryBaseTime);
-  const displayEnd = lastIntendedRange.current?.end ?? (currentEndTime - primaryBaseTime);
+  const displayStart = lastIntendedRange.current?.start ?? currentStartTime;
+  const displayEnd = lastIntendedRange.current?.end ?? currentEndTime;
 
   const chartOption: any = {
     animation: false,

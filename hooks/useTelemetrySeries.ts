@@ -110,13 +110,14 @@ export function useTelemetrySeries({
   // 3. Multi-dataset telemetry fetch
   const dataQueries = trpc.useQueries((t) =>
     resolvedGroups.map((rg, idx) => {
+      const baseTime = timeRanges[idx].data?.startTime ?? 0;
       return {
         ...t.telemetry.getChannelData({
           experimentId: rg.experimentId,
           datasetId: rg.datasetId,
           channelIds: rg.neededPhysicalIds,
-          startTime: startTime ?? 0,
-          endTime: endTime ?? Date.now(),
+          startTime: (startTime ?? 0) + baseTime,
+          endTime: (endTime ?? 0) + baseTime,
         }),
         enabled: startTime !== null && endTime !== null && isInView && timeRanges[idx].status === "success",
       };
@@ -127,7 +128,8 @@ export function useTelemetrySeries({
   useEffect(() => {
     const firstRange = timeRanges[0]?.data;
     if (firstRange?.startTime && firstRange?.endTime && startTime === null) {
-      initTimeRange(firstRange.startTime, firstRange.endTime);
+      const duration = firstRange.endTime - firstRange.startTime;
+      initTimeRange(0, duration);
     }
   }, [timeRanges, initTimeRange, startTime]);
 
