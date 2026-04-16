@@ -64,7 +64,7 @@ export function TelemetryChart({
     return () => obs.disconnect();
   }, []);
 
-  const { allSeries, isLoading } = useTelemetrySeries({
+  const { allSeries, isLoading, primaryBaseTime } = useTelemetrySeries({
     groups, virtualChannels, labelMap, isInView
   });
 
@@ -72,14 +72,15 @@ export function TelemetryChart({
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
   const lastIntendedRange = useRef<{ start: number; end: number } | null>(null);
   
-  const debouncedSetTimeRange = useCallback((start: number, end: number) => {
-    lastIntendedRange.current = { start, end };
+  const debouncedSetTimeRange = useCallback((relativeStart: number, relativeEnd: number) => {
+    lastIntendedRange.current = { start: relativeStart, end: relativeEnd };
     if (debounceTimer.current) clearTimeout(debounceTimer.current);
     debounceTimer.current = setTimeout(() => {
-      setTimeRange(start, end);
+      // Store uses ABSOLUTE timestamps
+      setTimeRange(relativeStart + primaryBaseTime, relativeEnd + primaryBaseTime);
       lastIntendedRange.current = null;
     }, 500);
-  }, [setTimeRange]);
+  }, [setTimeRange, primaryBaseTime]);
 
   useEffect(() => {
     return () => {
@@ -93,19 +94,23 @@ export function TelemetryChart({
     const option = chartInstance.getOption() as any;
     const dz = option.dataZoom?.[0];
     if (dz && typeof dz.startValue === "number" && typeof dz.endValue === "number") {
-      if (Math.abs(dz.startValue - (startTime ?? 0)) > 1 || Math.abs(dz.endValue - (endTime ?? 0)) > 1) {
+      // ECharts values are RELATIVE (0 to duration)
+      const relativeStartInStore = (startTime ?? primaryBaseTime) - primaryBaseTime;
+      const relativeEndInStore = (endTime ?? (primaryBaseTime + 1000)) - primaryBaseTime;
+
+      if (Math.abs(dz.startValue - relativeStartInStore) > 1 || Math.abs(dz.endValue - relativeEndInStore) > 1) {
         debouncedSetTimeRange(dz.startValue, dz.endValue);
       }
     }
-  }, [linked, chartInstance, startTime, endTime, debouncedSetTimeRange]);
+  }, [linked, chartInstance, startTime, endTime, primaryBaseTime, debouncedSetTimeRange]);
 
   const handleManualZoom = (direction: "in" | "out") => {
     if (!chartInstance) return;
     const opt = chartInstance.getOption() as any;
     const dz = opt.dataZoom?.[0];
     
-    const currentStart = (dz && typeof dz.startValue === "number") ? dz.startValue : (startTime ?? 0);
-    const currentEnd = (dz && typeof dz.endValue === "number") ? dz.endValue : (endTime ?? 0);
+    const currentStart = (dz && typeof dz.startValue === "number") ? dz.startValue : ((startTime ?? primaryBaseTime) - primaryBaseTime);
+    const currentEnd = (dz && typeof dz.endValue === "number") ? dz.endValue : ((endTime ?? (primaryBaseTime + 1000)) - primaryBaseTime);
 
     const center = (currentStart + currentEnd) / 2;
     const currentRange = currentEnd - currentStart;
@@ -136,37 +141,54 @@ export function TelemetryChart({
     }))
     : [{ type: "value" as const, axisLabel: { color: "#71717a", fontSize: 10 }, axisLine: { lineStyle: { color: "#27272a" } }, splitLine: { lineStyle: { color: "#27272a", type: "dashed" } } }];
 
-  const rangeMs = (endTime ?? 0) - (startTime ?? 0);
-  const echartsSeries = allSeries.flatMap((s: any) => {
+  const currentStartTime = startTime ?? primaryBaseTime;
+  const currentEndTime = endTime ?? (primaryBaseTime + 1000);
+  const rangeMs = currentEndTime - currentStartTime;
+
+  const echartsSeries = allSeries.flatMap((s: any): any => {
     const color = colorMap[s.globalId] || "#ccc";
     const yAxisIndex = s.unit ? Math.max(0, uniqueUnits.indexOf(s.unit)) : 0;
 
     if (chartMode === "time") {
-      const rangeData = [
-        ...s.points.map((p: any) => [p.t, p.min]),
-        ...[...s.points].reverse().map((p: any) => [p.t, p.max]),
-      ];
-
       return [
+        // 1. Min/Max faint lines (no fill)
         {
-          name: `${s.displayName} range`,
+          name: `${s.displayName} min`,
           type: "line",
-          data: rangeData,
-          lineStyle: { width: 0 },
-          areaStyle: { opacity: 0.12, color },
+          data: s.points.map((p: any) => [p.t, p.min]),
+          lineStyle: { color, width: 0.5, opacity: 0.2, type: "dashed" },
           itemStyle: { opacity: 0 },
           yAxisIndex,
-          tooltip: { show: false },
-          silent: true,
           showSymbol: false,
+          silent: true,
           z: 1,
         },
+        {
+          name: `${s.displayName} max`,
+          type: "line",
+          data: s.points.map((p: any) => [p.t, p.max]),
+          lineStyle: { color, width: 0.5, opacity: 0.2, type: "dashed" },
+          itemStyle: { opacity: 0 },
+          yAxisIndex,
+          showSymbol: false,
+          silent: true,
+          z: 1,
+        },
+        // 2. Primary average line with downward gradient fill
         {
           name: s.displayName,
           type: "line",
           data: s.points.map((p: any) => [p.t, p.avg]),
-          lineStyle: { color, width: 1.5 },
+          lineStyle: { color, width: 2 },
           itemStyle: { color },
+          areaStyle: {
+            opacity: 0.2,
+            origin: "start",
+            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+              { offset: 0, color: color },
+              { offset: 1, color: "rgba(0,0,0,0)" }
+            ]),
+          },
           showSymbol: false,
           yAxisIndex,
           z: 2,
@@ -183,17 +205,17 @@ export function TelemetryChart({
     return [];
   });
 
-  const displayStart = lastIntendedRange.current?.start ?? startTime ?? undefined;
-  const displayEnd = lastIntendedRange.current?.end ?? endTime ?? undefined;
+  const displayStart = lastIntendedRange.current?.start ?? (currentStartTime - primaryBaseTime);
+  const displayEnd = lastIntendedRange.current?.end ?? (currentEndTime - primaryBaseTime);
 
-  const chartOption = {
+  const chartOption: any = {
     animation: false,
     backgroundColor: "transparent",
     tooltip: { trigger: "axis", axisPointer: { type: "cross" }, backgroundColor: "#1c1b1b", borderColor: "#27272a", textStyle: { color: "#e4e4e7", fontSize: 11 }, confine: true },
     legend: { type: "scroll", bottom: 40, textStyle: { color: "#71717a", fontSize: 10 }, data: allSeries.map((s: any) => s.displayName) },
     grid: { left: 60, right: uniqueUnits.length > 1 ? 60 : 12, top: 10, bottom: 80 },
     xAxis: chartMode === "time" ? {
-      type: "time", axisLine: { lineStyle: { color: "#27272a" } }, splitLine: { show: false },
+      type: "value", axisLine: { lineStyle: { color: "#27272a" } }, splitLine: { show: false },
       axisLabel: { color: "#71717a", fontSize: 10, formatter: autoTimeFormatter(rangeMs) },
     } : { type: "value", name: "Hz", axisLine: { lineStyle: { color: "#27272a" } }, axisLabel: { color: "#71717a", fontSize: 10 }, splitLine: { show: false } },
     yAxis: yAxes,
@@ -201,7 +223,7 @@ export function TelemetryChart({
       { type: "inside", filterMode: "none", startValue: displayStart, endValue: displayEnd },
       { type: "slider", filterMode: "none", startValue: displayStart, endValue: displayEnd, bottom: 10, height: 24, borderColor: "#27272a", backgroundColor: "#131313", handleStyle: { color: "#f97316" }, textStyle: { color: "#71717a", fontSize: 9 } }
     ],
-    series: echartsSeries,
+    series: echartsSeries as any[],
   };
 
   const { menu, open: openMenu, close: closeMenu } = useContextMenu();

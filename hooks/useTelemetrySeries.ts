@@ -110,33 +110,24 @@ export function useTelemetrySeries({
   // 3. Multi-dataset telemetry fetch
   const dataQueries = trpc.useQueries((t) =>
     resolvedGroups.map((rg, idx) => {
-      const baseTime = timeRanges[idx].data?.startTime ?? 0;
       return {
         ...t.telemetry.getChannelData({
           experimentId: rg.experimentId,
           datasetId: rg.datasetId,
           channelIds: rg.neededPhysicalIds,
-          startTime: (startTime ?? 0) + baseTime,
-          endTime: (endTime ?? Date.now()) + baseTime,
+          startTime: startTime ?? 0,
+          endTime: endTime ?? Date.now(),
         }),
         enabled: startTime !== null && endTime !== null && isInView && timeRanges[idx].status === "success",
       };
     })
   );
 
-  // Re-fetch logic when view status changes
-  useEffect(() => {
-    if (isInView) {
-      dataQueries.forEach(q => q.refetch());
-    }
-  }, [isInView, dataQueries]);
-
   // Primary dataset (first one) provides initial duration if none set
   useEffect(() => {
     const firstRange = timeRanges[0]?.data;
-    if (firstRange?.startTime && firstRange?.endTime && !startTime) {
-      const duration = firstRange.endTime - firstRange.startTime;
-      initTimeRange(0, duration);
+    if (firstRange?.startTime && firstRange?.endTime && startTime === null) {
+      initTimeRange(firstRange.startTime, firstRange.endTime);
     }
   }, [timeRanges, initTimeRange, startTime]);
 
@@ -221,5 +212,6 @@ export function useTelemetrySeries({
   return {
     allSeries,
     isLoading: dataQueries.some(q => q.isLoading) || timeRanges.some(q => q.isLoading),
+    primaryBaseTime: timeRanges[0]?.data?.startTime ?? 0,
   };
 }
