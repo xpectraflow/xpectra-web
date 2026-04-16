@@ -268,11 +268,12 @@ export function TelemetryChart({
 
       // Add physical channels
       res.series.filter((s: any) => rg.plottingPhysicals.includes(s.channelId)).forEach((s: any) => {
+        const fallbackName = s.sensorName ? `${s.sensorName}.${s.channelName}` : s.channelName;
         combined.push({
           ...s,
           points: s.points.map((p: any) => ({ ...p, t: p.t - baseTime })),
           globalId: getGlobalId(rg.datasetId, s.channelId),
-          displayName: labelMap?.[getGlobalId(rg.datasetId, s.channelId)] ?? s.channelName
+          displayName: labelMap?.[getGlobalId(rg.datasetId, s.channelId)] ?? fallbackName
         });
       });
 
@@ -286,7 +287,9 @@ export function TelemetryChart({
       const samplesCount = res.series[0]?.points.length ?? 0;
       
       rg.orderedVirtuals.forEach(vc => {
-        const tokens = vc.expression.match(/[a-zA-Z0-9_\.]+/g) || [];
+        // Get unique tokens and sort by length descending to prevent partial replacements
+        const rawTokens = vc.expression.match(/[a-zA-Z0-9_\.]+/g) || [];
+        const tokens = Array.from(new Set(rawTokens)).sort((a, b) => b.length - a.length);
         const virtualPoints: any[] = [];
         
         if (samplesCount > 0) {
@@ -296,8 +299,10 @@ export function TelemetryChart({
             tokens.forEach((t: string) => {
               const s = valMap.get(t);
               const val = s?.points[i]?.avg ?? 0;
-              // Replace tokens while respecting word boundaries
-              expr = expr.replace(new RegExp(`\\b${t}\\b`, "g"), val.toString());
+              // Escape special characters (like dots)
+              const escapedT = t.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&');
+              // Use lookbehind and lookahead to ensure exact token match, including dots
+              expr = expr.replace(new RegExp(`(?<![a-zA-Z0-9_.])` + escapedT + `(?![a-zA-Z0-9_.])`, "g"), val.toString());
             });
             
             try {
@@ -417,15 +422,36 @@ export function TelemetryChart({
     const yAxisIndex = s.unit ? Math.max(0, uniqueUnits.indexOf(s.unit)) : 0;
 
     if (chartMode === "time") {
+      // Create a closed-loop polygon data for the range band
+      // This ensures the fill stays strictly between min and max lines
+      const rangeData = [
+        ...s.points.map((p: any) => [p.t, p.min]),
+        ...[...s.points].reverse().map((p: any) => [p.t, p.max]),
+      ];
+
       return [
         {
-          name: `${s.displayName} range`, type: "line", data: s.points.map((p: any) => [p.t, p.min, p.max]),
-          lineStyle: { opacity: 0, width: 0 }, areaStyle: { opacity: 0.12, color },
-          itemStyle: { opacity: 0 }, yAxisIndex, tooltip: { show: false }, silent: true, showSymbol: false, z: 1,
+          name: `${s.displayName} range`,
+          type: "line",
+          data: rangeData,
+          lineStyle: { width: 0 },
+          areaStyle: { opacity: 0.12, color },
+          itemStyle: { opacity: 0 },
+          yAxisIndex,
+          tooltip: { show: false },
+          silent: true,
+          showSymbol: false,
+          z: 1,
         },
         {
-          name: s.displayName, type: "line", data: s.points.map((p: any) => [p.t, p.avg]),
-          lineStyle: { color, width: 1.5 }, itemStyle: { color }, showSymbol: false, yAxisIndex, z: 2,
+          name: s.displayName,
+          type: "line",
+          data: s.points.map((p: any) => [p.t, p.avg]),
+          lineStyle: { color, width: 1.5 },
+          itemStyle: { color },
+          showSymbol: false,
+          yAxisIndex,
+          z: 2,
         }
       ];
     } else if (s.points.length > 2) {
