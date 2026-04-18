@@ -201,7 +201,6 @@ export const sensorsRouter = createTRPCRouter({
 
       const presignedUrl = await getSignedUrl(s3Client, new PutObjectCommand(param), {
         expiresIn: 3600,
-        unhoistableHeaders: new Set(["x-amz-sdk-checksum-algorithm", "x-amz-checksum-crc32"])
       });
 
       const endpoint = process.env.XPECTRA_S3_MEDIA_UPLOAD_ENDPOINT as string;

@@ -13,8 +13,8 @@ export const s3Client =
     },
     // Required for MinIO
     forcePathStyle: process.env.XPECTRA_S3_MEDIA_UPLOAD_FORCE_PATH_STYLE === 'true',
-    requestChecksumCalculation: "WHEN_REQUIRED",
-    responseChecksumValidation: "WHEN_REQUIRED",
+    requestChecksumCalculation: "WHEN_SUPPORTED",
+    responseChecksumValidation: "WHEN_SUPPORTED",
   });
 
 if (process.env.NODE_ENV !== "production") globalForS3.s3Client = s3Client;
