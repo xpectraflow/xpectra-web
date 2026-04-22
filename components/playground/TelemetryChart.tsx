@@ -371,15 +371,7 @@ export function TelemetryChart({
         {/* Loading Overlay: Internal to the chart area, doesn't hide controls */}
         {isGlobalLoading && (
           <div className="absolute inset-0 z-40 flex items-center justify-center bg-[#0e0e0e]/40 backdrop-blur-[2px] transition-all duration-300">
-            <div className="flex flex-col items-center gap-3 rounded-xl bg-[#1c1b1b]/90 p-6 border border-[#27272a] shadow-2xl">
-              <Loader2 className="h-6 w-6 animate-spin text-amber-500" />
-              <div className="flex flex-col items-center">
-                <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-                  {isCalculatingFFT ? "Computing Spectral Density..." : "Fetching Telemetry..."}
-                </span>
-                {isLoading && !isCalculatingFFT && <span className="text-[9px] text-muted-foreground/50 mt-1 uppercase">Synced Resolution Update</span>}
-              </div>
-            </div>
+            <Loader2 className="h-8 w-8 animate-spin text-amber-500" />
           </div>
         )}
       </div>
