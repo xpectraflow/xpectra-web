@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { PageLayout } from '@/components/PageLayout';
-import { Plus, Search, Database, Loader2, Gamepad, Eye } from 'lucide-react';
+import { Plus, Search, Database, Loader2, Gamepad, Eye, Code, X, Copy } from 'lucide-react';
 import { trpc } from '@/lib/trpc';
 import Link from "next/link";
 import { format } from 'date-fns';
@@ -10,6 +10,8 @@ import { cn } from '@/lib/utils';
 
 export default function DatasetsPage() {
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedDatasetForCode, setSelectedDatasetForCode] = useState<{name: string, id: string, experimentId: string} | null>(null);
+  const [copied, setCopied] = useState(false);
   
   const { data: datasets = [], isLoading } = trpc.datasets.getAllDatasets.useQuery();
 
@@ -128,6 +130,12 @@ export default function DatasetsPage() {
                         >
                           <Gamepad className="h-3.5 w-3.5" /> Playground
                         </Link>
+                        <button
+                          onClick={() => setSelectedDatasetForCode(ds)}
+                          className="inline-flex items-center gap-1 rounded-md border border-input px-2 py-1 text-xs text-muted-foreground transition hover:bg-accent hover:text-accent-foreground"
+                        >
+                          <Code className="h-3.5 w-3.5" /> Code
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -137,6 +145,55 @@ export default function DatasetsPage() {
           </div>
         )}
       </div>
+
+      {selectedDatasetForCode && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="w-full max-w-2xl overflow-hidden rounded-xl border border-border bg-card shadow-2xl">
+            <div className="flex items-center justify-between border-b border-border bg-muted/40 px-4 py-3">
+              <h3 className="text-sm font-semibold text-foreground">
+                Load Dataset via Python
+              </h3>
+              <button
+                onClick={() => {
+                  setSelectedDatasetForCode(null);
+                  setCopied(false);
+                }}
+                className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div className="text-sm text-muted-foreground">
+                Use the Xpectra Python client to load this dataset programmatically.
+              </div>
+              <div className="relative overflow-hidden rounded-lg border border-border bg-[#1E1E1E]">
+                <div className="flex items-center justify-between border-b border-white/10 bg-[#252526] px-4 py-2">
+                  <span className="text-xs font-medium text-white/70">Python</span>
+                  <button
+                    onClick={() => {
+                      const code = `from xpectra.datasets import Client\nclient = Client()\ndataset = client.datasets(data="${selectedDatasetForCode.name}", experiment_id="${selectedDatasetForCode.experimentId}")\n\ndata = dataset.load()`;
+                      navigator.clipboard.writeText(code);
+                      setCopied(true);
+                      setTimeout(() => setCopied(false), 2000);
+                    }}
+                    className="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-white/70 transition-colors hover:bg-white/10 hover:text-white"
+                  >
+                    <Copy className="h-3 w-3" />
+                    {copied ? 'Copied!' : 'Copy'}
+                  </button>
+                </div>
+                <pre className="overflow-x-auto p-4 text-sm text-[#D4D4D4] font-mono leading-relaxed">
+                  <span className="text-[#C586C0]">from</span> xpectra.datasets <span className="text-[#C586C0]">import</span> Client
+                  {'\n'}client = Client()
+                  {'\n'}dataset = client.datasets(data=<span className="text-[#CE9178]">"{selectedDatasetForCode.name}"</span>, experiment_id=<span className="text-[#CE9178]">"{selectedDatasetForCode.experimentId}"</span>)
+                  {'\n\n'}data = dataset.load()
+                </pre>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </PageLayout>
   );
 }
