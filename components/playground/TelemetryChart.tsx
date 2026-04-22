@@ -5,7 +5,6 @@ import ReactECharts from "echarts-for-react";
 import type { EChartsInstance } from "echarts-for-react";
 import * as echarts from "echarts";
 import { Loader2, Link2, Link2Off, Activity, MoreVertical, ZoomIn, ZoomOut, Maximize2 } from "lucide-react";
-import { usePlaygroundTimeStore } from "@/stores/playgroundTime";
 import { usePlayground, PlottedChannelGroup } from "@/components/playground/PlaygroundContext";
 import { useContextMenu, ContextMenu } from "@/components/playground/ContextMenu";
 import { useTelemetrySeries, getGlobalId } from "@/hooks/useTelemetrySeries";
@@ -19,6 +18,13 @@ interface TelemetryChartProps {
   height?: number;
   onToggleFullscreen?: () => void;
   isFullscreen?: boolean;
+  startTime: number | null;
+  endTime: number | null;
+  linked: boolean;
+  setTimeRange: (start: number, end: number) => void;
+  initTimeRange: (start: number, end: number) => void;
+  toggleLinked: () => void;
+  syncGroupId: string;
 }
 
 export const CHART_PALETTE = [
@@ -43,6 +49,13 @@ export function TelemetryChart({
   height,
   onToggleFullscreen,
   isFullscreen,
+  startTime,
+  endTime,
+  linked,
+  setTimeRange,
+  initTimeRange,
+  toggleLinked,
+  syncGroupId,
 }: TelemetryChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [isInView, setIsInView] = useState(false);
@@ -54,7 +67,6 @@ export function TelemetryChart({
   const [spectralSeriesData, setSpectralSeriesData] = useState<any[]>([]);
   const lastRenderedMode = useRef<"time" | "frequency">("time");
 
-  const { startTime, endTime, linked, setTimeRange, toggleLinked } = usePlaygroundTimeStore();
   const { virtualChannels } = usePlayground();
 
   // Manage visibility/fetch trigger
@@ -69,7 +81,7 @@ export function TelemetryChart({
   }, []);
 
   const { allSeries, isLoading } = useTelemetrySeries({
-    groups, virtualChannels, labelMap, isInView
+    groups, virtualChannels, labelMap, isInView, startTime, endTime, initTimeRange
   });
 
   const uniqueUnits = useMemo(() => {
@@ -349,8 +361,8 @@ export function TelemetryChart({
             style={{ height: "100%" }} 
             onEvents={{ datazoom: handleDataZoom }} 
             onChartReady={inst => { 
-              inst.group = "playground-sync"; 
-              echarts.connect("playground-sync"); 
+              inst.group = syncGroupId; 
+              echarts.connect(syncGroupId); 
               setChartInstance(inst); 
             }} 
           />

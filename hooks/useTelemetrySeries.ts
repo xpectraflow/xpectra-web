@@ -1,6 +1,5 @@
 import { useMemo, useEffect, RefObject } from "react";
 import { trpc } from "@/lib/trpc";
-import { usePlaygroundTimeStore } from "@/stores/playgroundTime";
 import { PlottedChannelGroup, VirtualChannel } from "@/components/playground/PlaygroundContext";
 
 export const getGlobalId = (datasetId: string, channelId: string) => `${datasetId}:${channelId}`;
@@ -12,7 +11,9 @@ interface UseTelemetrySeriesParams {
   virtualChannels: VirtualChannel[];
   labelMap?: Record<string, string>;
   isInView: boolean;
-  onRefetchData?: (queriesReady: boolean) => void;
+  startTime: number | null;
+  endTime: number | null;
+  initTimeRange: (start: number, end: number) => void;
 }
 
 export function useTelemetrySeries({
@@ -20,10 +21,10 @@ export function useTelemetrySeries({
   virtualChannels,
   labelMap,
   isInView,
+  startTime,
+  endTime,
+  initTimeRange,
 }: UseTelemetrySeriesParams) {
-  const { startTime, endTime } = usePlaygroundTimeStore();
-  const { initTimeRange } = usePlaygroundTimeStore();
-
   // 1. Fetch channel metadata for each group
   const metaQueries = trpc.useQueries((t) =>
     groups.map((g) =>

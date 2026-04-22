@@ -9,6 +9,7 @@ import { useSearchParams } from "next/navigation";
 import { useEffect, useRef, Suspense, useMemo, useState } from "react";
 import { FlaskConical, BarChart2, Cpu, Loader2, X, Database } from "lucide-react";
 import Link from "next/link";
+import { useCallback } from "react";
 
 // ─── Empty states ─────────────────────────────────────────────────────────────
 
@@ -55,6 +56,23 @@ function NoDatasetsPlottedState() {
 
 function PlottedDatasetBlock({ dataset }: { dataset: PlottedDataset }) {
   const { removePlot, virtualChannels } = usePlayground();
+
+  // Local state for independent zoom/pan per dataset block
+  const [startTime, setStartTime] = useState<number | null>(null);
+  const [endTime, setEndTime] = useState<number | null>(null);
+  const [linked, setLinked] = useState(true);
+
+  const setTimeRange = useCallback((s: number, e: number) => {
+    setStartTime(s);
+    setEndTime(e);
+  }, []);
+
+  const initTimeRange = useCallback((s: number, e: number) => {
+    setStartTime(prev => prev === null ? s : prev);
+    setEndTime(prev => prev === null ? e : prev);
+  }, []);
+
+  const toggleLinked = useCallback(() => setLinked(l => !l), []);
 
   // 1. Fetch channels for ALL groups in this block
   const channelsQueries = trpc.useQueries((t) =>
@@ -180,6 +198,13 @@ function PlottedDatasetBlock({ dataset }: { dataset: PlottedDataset }) {
           colorMap={colorMap}
           labelMap={labelMap}
           height={600}
+          startTime={startTime}
+          endTime={endTime}
+          linked={linked}
+          setTimeRange={setTimeRange}
+          initTimeRange={initTimeRange}
+          toggleLinked={toggleLinked}
+          syncGroupId={dataset.id}
         >
           <div className="mb-3 flex flex-wrap gap-3">
             {channels.map((ch) => (
@@ -208,6 +233,13 @@ function PlottedDatasetBlock({ dataset }: { dataset: PlottedDataset }) {
                 colorMap={colorMap}
                 labelMap={labelMap}
                 height={350}
+                startTime={startTime}
+                endTime={endTime}
+                linked={linked}
+                setTimeRange={setTimeRange}
+                initTimeRange={initTimeRange}
+                toggleLinked={toggleLinked}
+                syncGroupId={dataset.id}
               >
                 <div className="mb-2 flex items-center gap-2 px-2 pt-1">
                   <span className="h-3 w-3 rounded-sm shrink-0" style={{ background: colorMap[ch.globalId] }} />
@@ -232,12 +264,26 @@ function FullscreenChartWrapper({
   colorMap,
   labelMap,
   height,
+  startTime,
+  endTime,
+  linked,
+  setTimeRange,
+  initTimeRange,
+  toggleLinked,
+  syncGroupId,
 }: {
   children?: React.ReactNode;
   groups: PlottedChannelGroup[];
   colorMap: Record<string, string>;
   labelMap: Record<string, string>;
   height: number;
+  startTime: number | null;
+  endTime: number | null;
+  linked: boolean;
+  setTimeRange: (start: number, end: number) => void;
+  initTimeRange: (start: number, end: number) => void;
+  toggleLinked: () => void;
+  syncGroupId: string;
 }) {
   const fsRef = useRef<{ toggle: () => void; isFullscreen: boolean }>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -258,6 +304,13 @@ function FullscreenChartWrapper({
           height={isFullscreen ? undefined : height}
           onToggleFullscreen={() => fsRef.current?.toggle()}
           isFullscreen={isFullscreen}
+          startTime={startTime}
+          endTime={endTime}
+          linked={linked}
+          setTimeRange={setTimeRange}
+          initTimeRange={initTimeRange}
+          toggleLinked={toggleLinked}
+          syncGroupId={syncGroupId}
         />
       </div>
     </FullscreenPanel>
